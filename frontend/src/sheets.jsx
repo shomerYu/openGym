@@ -923,16 +923,60 @@ function FinishSummary({ w, prs, e1prs = [], close }) {
     <Button variant="primary" onClick={() => { close(); nav('/home') }}>{t('Nice!')}</Button>
   </div>
 }
-export function finishWorkout() {
+/* ---------------------------------------------------------------------------
+   Finish sheet. Two things you can only say at the end of a session:
+   "every remaining set happened" (you trained through the list without tapping
+   each checkbox) and "it took this long" (the clock kept running while you
+   racked weights, took a call, or left the app open on the drive home).
+   Duration is stored the way every reader already expects it — as `end` — so
+   history, the heatmap and the monthly totals pick it up with no special case.
+--------------------------------------------------------------------------- */
+function FinishPrompt({ close }) {
   const A = S().active
-  if (!A) return
-  const done = setsDoneActive(A)
+  // Snapshotted at open: this is the moment you finished, not the moment you
+  // finally tapped the button in the sheet.
+  const [min, setMin] = useState(() => Math.max(0, Math.round((Date.now() - A.start) / 60000)))
   const total = A.entries.reduce((n, e) => n + e.sets.length, 0)
-  if (!done) { confirmSheet({ title: t('Nothing logged yet'), message: t('You haven’t checked off any sets. Finish the workout anyway?'), confirmText: t('Finish anyway'), onConfirm: doFinishWorkout }); return }
-  if (done < total) { confirmSheet({ title: t('Finish early?'), message: t(total - done === 1 ? '{0} set still unchecked. Finish the workout now?' : '{0} sets still unchecked. Finish the workout now?', total - done), confirmText: t('Finish workout'), onConfirm: doFinishWorkout }); return }
-  doFinishWorkout()
+  const done = setsDoneActive(A)
+  const left = total - done
+  // Pre-armed when there is anything left, because that is the case the button
+  // exists for; off when you already checked everything, where it is a no-op.
+  const [markAll, setMarkAll] = useState(left > 0)
+  const finalDone = markAll ? total : done
+
+  const commit = () => {
+    close()
+    if (markAll) update(s => { s.active.entries.forEach(e => e.sets.forEach(x => { x.done = true })) }, true)
+    doFinishWorkout({ end: A.start + min * 60000 })
+  }
+  return <>
+    <h3 className="row" style={{ gap: 8 }}><Icon name="flag" style={{ color: 'var(--acc)' }} />{t('Finish workout')}</h3>
+    <div className="muted small" style={{ marginBottom: 14 }}>
+      {left > 0 ? t(left === 1 ? '{0} set is still unchecked.' : '{0} sets are still unchecked.', left) + ' ' + t('Mark them done if you trained them, then confirm how long the session took.')
+        : t('Every set is checked off. Confirm how long the session took.')}
+    </div>
+    {left > 0 && <div className="card" style={{ marginBottom: 12 }}>
+      <div className="row between">
+        <div className="grow">
+          <div style={{ fontWeight: 600 }}>{t('Mark all exercises done')}</div>
+          <div className="muted small">{t('Checks off every remaining set at the numbers already in the rows.')}</div>
+        </div>
+        <Switch checked={markAll} onChange={setMarkAll} />
+      </div>
+    </div>}
+    <Stepper label={t('Duration (min)')} value={min} step={5} decimal={false} onChange={v => setMin(Math.max(0, Math.round(v || 0)))} />
+    <div className="small dim" style={{ marginTop: 6 }}>{t('{0} of {1} sets will be logged.', finalDone, total)}</div>
+    <div style={{ height: 16 }} />
+    <Button variant="primary" icon="check" onClick={commit}>{finalDone ? t('Finish workout') : t('Finish with nothing logged')}</Button>
+    <div style={{ height: 8 }} />
+    <Button variant="ghost" className="dim" onClick={close}>{t('Keep training')}</Button>
+  </>
 }
-function doFinishWorkout() {
+export function finishWorkout() {
+  if (!S().active) return
+  ui().openSheet(close => <FinishPrompt close={close} />)
+}
+function doFinishWorkout({ end } = {}) {
   const st = S()
   const A = st.active
   if (!A) return
@@ -947,7 +991,7 @@ function doFinishWorkout() {
     if (rec && !prs.includes(e.id)) e1prs.push({ id: e.id, ...rec })
   })
   const w = {
-    id: A.id, d: A.d, start: A.start, end: Date.now(), routineId: A.routineId, name: A.name, bw: A.bw,
+    id: A.id, d: A.d, start: A.start, end: end != null ? Math.max(A.start, end) : Date.now(), routineId: A.routineId, name: A.name, bw: A.bw,
     // `target` (what the session prescribed) is kept alongside the sets: without it a
     // finished workout cannot say whether it hit its reps, and a timed session reads back
     // as "0 reps". It is what the progression engine works from.

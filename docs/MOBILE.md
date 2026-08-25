@@ -65,7 +65,27 @@ The official signed APK is at **[opengym.duarte-santos.ch](https://opengym.duart
 Android asks you to allow installs from the browser the first time — that's standard for any
 app outside the Play Store.
 
-To build and sign your own:
+### Android — build the APK in CI (no Android Studio needed)
+
+`.github/workflows/android-apk.yml` builds the APK on a GitHub runner, which already
+has the Android SDK and Java. Actions tab → **Android APK** → *Run workflow*, then
+download `openGym-apk` from the finished run. Pushing a `v*` tag builds one too.
+
+With no secrets set it produces the **debug** APK — installable on any phone, fine for
+personal use. To get a **release** APK signed with your own key, add these four repo
+secrets (Settings → Secrets and variables → Actions):
+
+| Secret | Value |
+|---|---|
+| `ANDROID_KEYSTORE_BASE64` | `base64 -w0 my.keystore` |
+| `ANDROID_KEYSTORE_PASSWORD` | keystore password |
+| `ANDROID_KEY_ALIAS` | key alias (e.g. `opengym`) |
+| `ANDROID_KEY_PASSWORD` | key password |
+
+Keep that keystore. Android only installs an update over an existing app when both are
+signed with the same key — lose it and users have to uninstall before updating.
+
+To build and sign your own locally:
 
 ```sh
 cd frontend && npm run build:mobile
