@@ -528,6 +528,10 @@ h4.sec{
 .ck.on svg{stroke:var(--on-acc)}
 
 /* ------------------------------------------------------------- workout --- */
+/* whole-workout list: exercises stacked down one page, each its own block. The gap has to
+   be bigger than the gap inside a block or the sets of one exercise read as the next one's. */
+.wl-ex{margin-bottom:26px}
+.wl-ex:last-child{margin-bottom:0}
 .wprog{height:4px;background:var(--surface-2);border-radius:99px;overflow:hidden;margin-bottom:16px}
 .wprog i{display:block;height:100%;background:var(--acc);border-radius:99px;transition:width var(--med) var(--ease)}
 .exmedia{position:relative;border-radius:var(--r-lg);overflow:hidden;background:#fff;margin-bottom:12px}

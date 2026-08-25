@@ -127,6 +127,13 @@ export default function Settings() {
             onChange={v => update(s => { s.keepAwake = v })} />
         </Row>
       )}
+      {/* Focus walks one exercise at a time; List puts the whole session on one page so you
+          can see every exercise, set, rep and weight without paging through them. */}
+      <Row icon="list" iconTint="var(--blue)" title={t('Workout layout')}>
+        <Segmented className="seg-inline"
+          options={[{ value: 'focus', label: t('Focus') }, { value: 'list', label: t('List') }]}
+          value={S.workoutView === 'list' ? 'list' : 'focus'} onChange={v => update(s => { s.workoutView = v })} />
+      </Row>
       <Row icon="bell" iconTint="var(--pink)" title={t('Sounds')}>
         <Switch checked={!!S.sound} onChange={v => update(s => { s.sound = v })} />
       </Row>

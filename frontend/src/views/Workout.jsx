@@ -8,10 +8,10 @@ import { fmtNum, fmtDate, todayISO, exCount, DAYN } from '../lib/format.js'
 import { beep, vibrate } from '../lib/sound.js'
 import { t } from '../lib/i18n.js'
 import { api } from '../lib/api.js'
-import Media from '../components/Media.jsx'
+import Media, { Thumb } from '../components/Media.jsx'
 import { startFlow, exercisePicker, exConfigSheet, exerciseDetailSheet, topWeightSheet, finishWorkout, workoutCompleteSheet, confirmSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
-import { Button, Check, NumberField } from '../components/ui.jsx'
+import { Button, Check, NumberField, Segmented } from '../components/ui.jsx'
 import { nextPrescription, applyPrescription } from '../lib/progression.js'
 import { glyphOf } from '../lib/glyphs.js'
 
@@ -54,7 +54,7 @@ function Elapsed({ start }) {
 }
 
 /* ---------- one exercise block (reps: weight×reps · time: a held duration · cardio: duration+speed) ---------- */
-function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemoveSet, onStartTimed }) {
+function ExerciseBlock({ entryIdx, compact, list, onToggle, onField, onAddSet, onRemoveSet, onStartTimed }) {
   const S = useStore(s => s.S)
   const working = useUI(s => s.work)
   const entry = S.active.entries[entryIdx]
@@ -108,22 +108,43 @@ function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemov
       <button aria-label="Increase" onClick={() => bump(s, i, col, 1)}><Icon name="plus" /></button>
     </div>
   )
+  // The two tags that still earn their space in the whole-workout list: what kind of set
+  // this is, and — for unilateral work — the per-side split, without which the rep number
+  // on screen means two different things (issue #31).
+  const cardioTag = cardio ? <span className="tag acc"><Icon name="figureRun" />{t('Cardio')}</span> : null
+  const perSideTag = !cardio && !timed && isPerSide(cfg)
+    ? <span className="tag acc nocap"><Icon name="shuffle" />{t('{0} per side', fmtNum(sideReps(entry.sets.find(s => !s.done)?.r ?? entry.sets[0]?.r)))}</span>
+    : null
+  const doneN = entry.sets.filter(s => s.done).length
   return <>
-    <Media ex={ex} key={entry.id} compact={compact} minimizable />
-    <div className="row between" style={{ marginBottom: 6 }}>
-      <div style={{ fontSize: compact ? 17 : 20, fontWeight: 600, letterSpacing: '-.02em', textTransform: 'capitalize', lineHeight: 1.2 }}>{ex.n}</div>
-      <button className="iconbtn" aria-label={t('Details')} onClick={() => exerciseDetailSheet(ex)}><Icon name="info" /></button>
-    </div>
-    <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
-      {cardio && <span className="tag acc"><Icon name="figureRun" />{t('Cardio')}</span>}
-      {/* You log the total; this is the split, so the set in front of you is unambiguous
-          without the rep count having to mean two different things (issue #31). */}
-      {!cardio && !timed && isPerSide(cfg) && <span className="tag acc nocap"><Icon name="shuffle" />{t('{0} per side', fmtNum(sideReps(entry.sets.find(s => !s.done)?.r ?? entry.sets[0]?.r)))}</span>}
-      {(ex.tg || ex.bp) && <span className="tag">{t(ex.tg || ex.bp)}</span>}
-      {ex.eq && <span className="tag">{t(ex.eq)}</span>}
-      {best > 0 && <span className="tag nocap">{t('Best:')} {fmtNum(best)} {S.unit}</span>}
-    </div>
-    {last && <div className="small dim" style={{ marginBottom: 4 }}>{t('Last time')} ({fmtDate(last.d)}): {last.sets.map(s => setLabel(entry.id, s, last.target)).join(', ')}</div>}
+    {/* The whole-workout list trades the animation for a thumbnail and folds the tag row
+        into one subtitle: six autoplaying GIFs stacked down a page is not a session you
+        can read at a glance, which is the only reason to be in this view. */}
+    {list ? <>
+      <div className="row" style={{ gap: 10, marginBottom: 8 }}>
+        <Thumb ex={ex} />
+        <div className="grow" style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-.01em', textTransform: 'capitalize', lineHeight: 1.25 }}>{ex.n}</div>
+          <div className="muted small">{t('{0} sets', doneN + '/' + entry.sets.length)}{best > 0 ? ' · ' + t('Best:') + ' ' + fmtNum(best) + ' ' + S.unit : ''}</div>
+        </div>
+        <button className="iconbtn" aria-label={t('Details')} onClick={() => exerciseDetailSheet(ex)}><Icon name="info" /></button>
+      </div>
+      {(cardioTag || perSideTag) && <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>{cardioTag}{perSideTag}</div>}
+    </> : <>
+      <Media ex={ex} key={entry.id} compact={compact} minimizable />
+      <div className="row between" style={{ marginBottom: 6 }}>
+        <div style={{ fontSize: compact ? 17 : 20, fontWeight: 600, letterSpacing: '-.02em', textTransform: 'capitalize', lineHeight: 1.2 }}>{ex.n}</div>
+        <button className="iconbtn" aria-label={t('Details')} onClick={() => exerciseDetailSheet(ex)}><Icon name="info" /></button>
+      </div>
+      <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+        {cardioTag}
+        {perSideTag}
+        {(ex.tg || ex.bp) && <span className="tag">{t(ex.tg || ex.bp)}</span>}
+        {ex.eq && <span className="tag">{t(ex.eq)}</span>}
+        {best > 0 && <span className="tag nocap">{t('Best:')} {fmtNum(best)} {S.unit}</span>}
+      </div>
+      {last && <div className="small dim" style={{ marginBottom: 4 }}>{t('Last time')} ({fmtDate(last.d)}): {last.sets.map(s => setLabel(entry.id, s, last.target)).join(', ')}</div>}
+    </>}
     {plan && plan.why && plan.kind !== 'off' && <div className={'progline' + (plan.kind === 'deload' ? ' warn' : '')}>
       <Icon name={plan.kind === 'up' ? 'arrowUp' : plan.kind === 'deload' ? 'arrowDown' : 'lightbulb'} />
       <span>{t(...plan.why)}</span>
@@ -163,6 +184,8 @@ function ActiveWorkout() {
   const unit = A.entries.length ? unitOf(units, cur) : []
   const unitIdx = units.findIndex(u => u === unit)
   const isSuperset = unit.length > 1
+  // Which way the session is laid out, remembered across exercises and future workouts.
+  const listView = S.workoutView === 'list'
 
   const total = A.entries.reduce((n, e) => n + e.sets.length, 0)
   const done = setsDoneActive(A)
@@ -198,17 +221,22 @@ function ActiveWorkout() {
   const toggle = (idx, i) => {
     const m = modeAt(idx)
     const cardioEntry = m === 'cardio'
-    const isLastUnit = unitIdx >= units.length - 1
+    // Derived from the set you actually tapped rather than from `cur`: in the whole-workout
+    // list every exercise is on screen at once, so the one being checked off is usually not
+    // the "current" one, and rest/superset/finish would otherwise be decided for the wrong unit.
+    const u = unitOf(units, idx)
     let askTop = false, exJustDone = false, workoutDone = false
     mutEntry(idx, e => {
       e.sets[i].done = !e.sets[i].done
       if (e.sets[i].done) {
         beep(S.sound, 1040, 0.12); vibrate(30)
-        const isLastExInUnit = idx === unit[unit.length - 1]
-        const unitDone = unit.every(ui => (ui === idx ? e : A.entries[ui]).sets.every(x => x.done))
+        const isLastExInUnit = idx === u[u.length - 1]
+        const unitDone = u.every(ui => (ui === idx ? e : A.entries[ui]).sets.every(x => x.done))
         if (isLastExInUnit && !unitDone) startRest(S.restSec)
         else if (unitDone) stopRest()
-        if (unitDone && isLastUnit) workoutDone = true      // last exercise's last set → done
+        // "The whole workout is done" is every set in every exercise, not just the last unit's:
+        // out of order in the list view, finishing the last exercise first proves nothing.
+        if (unitDone) workoutDone = A.entries.every((en, k) => (k === idx ? e : en).sets.every(x => x.done))
         // Only loaded reps training has a "working weight" worth confirming — a bodyweight
         // plank has nothing to put in that slider, and neither does a set of push-ups
         // (issue #32: the fewest taps that still record what happened).
@@ -222,6 +250,24 @@ function ActiveWorkout() {
     else if (workoutDone) workoutCompleteSheet()
     else if (exJustDone && cardioEntry) useUI.getState().toast(t('Cardio logged'))
     else if (exJustDone && m === 'time') useUI.getState().toast(t('Hold logged'))
+  }
+
+  // One unit — a single exercise, or a superset's exercises inside their shared card.
+  // Both views render through this, so a set row behaves identically in either.
+  const renderUnit = (u, key) => {
+    const ss = u.length > 1
+    const blocks = u.map((idx, k) => <div key={idx} className={ss ? 'ss-ex' : undefined}>
+      {ss && k > 0 && <div className="ss-amp">+</div>}
+      <ExerciseBlock entryIdx={idx} compact={ss} list={listView}
+        onToggle={i => toggle(idx, i)} onField={(i, f, v) => setField(idx, i, f, v)}
+        onAddSet={() => addSet(idx)} onRemoveSet={() => removeSet(idx)} onStartTimed={i => startTimed(idx, i)} />
+    </div>)
+    return <div key={key} className={listView ? 'wl-ex' : undefined}>
+      {ss ? <div className="ss-card">
+        <div className="ss-hd"><Icon name="link" />{t('Superset · do these back-to-back, rest after both')}</div>
+        {blocks}
+      </div> : blocks}
+    </div>
   }
 
   // Live-presence heartbeat so the admin dashboard can show who's training now. Signed-in only —
@@ -260,27 +306,27 @@ function ActiveWorkout() {
     <div className="wprog"><i style={{ width: (total ? done / total * 100 : 0) + '%' }} /></div>
 
     {A.entries.length ? <>
-      <div className="muted small" style={{ marginBottom: 6 }}>{isSuperset ? t('Superset {0} / {1}', unitIdx + 1, units.length) : t('Exercise {0} / {1}', unitIdx + 1, units.length)}</div>
-      {isSuperset ? (
-        <div className="ss-card">
-          <div className="ss-hd"><Icon name="link" />{t('Superset · do these back-to-back, rest after both')}</div>
-          {unit.map((idx, k) => <div key={idx} className="ss-ex">
-            {k > 0 && <div className="ss-amp">+</div>}
-            <ExerciseBlock entryIdx={idx} compact
-              onToggle={i => toggle(idx, i)} onField={(i, f, v) => setField(idx, i, f, v)} onAddSet={() => addSet(idx)} onRemoveSet={() => removeSet(idx)} onStartTimed={i => startTimed(idx, i)} />
-          </div>)}
-        </div>
-      ) : (
-        <ExerciseBlock entryIdx={cur} onToggle={i => toggle(cur, i)} onField={(i, f, v) => setField(cur, i, f, v)} onAddSet={() => addSet(cur)} onRemoveSet={() => removeSet(cur)} onStartTimed={i => startTimed(cur, i)} />
-      )}
+      <div className="row between" style={{ marginBottom: 8 }}>
+        <div className="muted small">{listView ? t('{0} exercises · {1} sets', units.length, total)
+          : isSuperset ? t('Superset {0} / {1}', unitIdx + 1, units.length) : t('Exercise {0} / {1}', unitIdx + 1, units.length)}</div>
+        <Segmented className="seg-inline" value={listView ? 'list' : 'focus'}
+          onChange={v => update(s => { s.workoutView = v })}
+          options={[{ value: 'focus', icon: 'dumbbell' }, { value: 'list', icon: 'list' }]} />
+      </div>
+      {/* One exercise at a time, or the whole session on one page. Same rows either way —
+          the list is a working view, not a preview: every set is still editable and
+          checkable where it sits. */}
+      {(listView ? units : [unit]).map((u, k) => renderUnit(u, k))}
     </> : <div className="empty"><div className="ico"><Icon name="shuffle" /></div>{t('Freestyle workout — add your first exercise.')}</div>}
 
     <div style={{ height: 12 }} />
-    <div className="row">
-      <Button icon="chevronLeft" disabled={unitIdx <= 0} onClick={() => update(s => { s.active.cur = units[unitIdx - 1][0] })}>{t('Prev')}</Button>
-      <Button trailingIcon="chevronRight" disabled={unitIdx < 0 || unitIdx >= units.length - 1} onClick={() => update(s => { s.active.cur = units[unitIdx + 1][0] })}>{t('Next')}</Button>
-    </div>
-    <div style={{ height: 10 }} />
+    {!listView && <>
+      <div className="row">
+        <Button icon="chevronLeft" disabled={unitIdx <= 0} onClick={() => update(s => { s.active.cur = units[unitIdx - 1][0] })}>{t('Prev')}</Button>
+        <Button trailingIcon="chevronRight" disabled={unitIdx < 0 || unitIdx >= units.length - 1} onClick={() => update(s => { s.active.cur = units[unitIdx + 1][0] })}>{t('Next')}</Button>
+      </div>
+      <div style={{ height: 10 }} />
+    </>}
     <Button onClick={() => exercisePicker(ex => exConfigSheet(ex, null, cfg => update(s => {
       const full = { ...cfg, id: ex.id }
       const plan = nextPrescription(s, full, s.routines.find(r => r.id === s.active.routineId))
