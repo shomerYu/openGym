@@ -131,6 +131,34 @@ export function exLine(cfg, unit) {
   return `${n} × ${cfg.reps}${load}${split}`
 }
 
+// One-line summary of an exercise as it stands in a live session — "4 × 10 · 70 kg".
+// exLine above describes the *plan*; this describes the numbers actually sitting in the rows,
+// which is what the condensed workout list has to show: progression applied, last session's
+// weight carried over, and whatever you have since typed in. A value that is the same across
+// every set prints once; one that varies prints as a range, so a ramped or dropped set is
+// visible in the summary instead of silently averaged away.
+export function activeLine(entry, unit) {
+  const cfg = { ...(entry.target || {}), id: entry.id }
+  const sets = entry.sets || []
+  if (!sets.length) return exLine(cfg, unit)
+  const mode = modeOf(cfg)
+  const n = sets.length
+  const span = (pick, fmt) => {
+    const vals = sets.map(pick).map(v => v || 0)
+    const lo = Math.min(...vals), hi = Math.max(...vals)
+    return lo === hi ? fmt(lo) : fmt(lo) + '–' + fmt(hi)
+  }
+  const maxOf = pick => Math.max(...sets.map(pick).map(v => v || 0))
+
+  if (mode === 'cardio') return `${n} × ${span(s => s.min, fmtNum)} min @ ${span(s => s.speed, fmtNum)} km/h`
+  // Added weight reads as added, exactly as it does in exLine and setLabel: "+10 kg" on a dip
+  // belt, "60 kg" on a barbell, and nothing at all when the set carries no load.
+  const load = maxOf(s => s.w) > 0 ? ' · ' + (isBw(cfg) ? '+' : '') + span(s => s.w, fmtNum) + ' ' + unit : ''
+  if (mode === 'time') return `${n} × ${span(s => s.sec, fmtSec)}${load}`
+  const split = isPerSide(cfg) ? ' · ' + t('{0}/side', fmtNum(sideReps(sets[0].r))) : ''
+  return `${n} × ${span(s => s.r, fmtNum)}${load}${split}`
+}
+
 // Drop superset ids that no longer have an adjacent partner (after unlink/reorder/remove).
 export function cleanupSg(ex) {
   ex.forEach((e, i) => {

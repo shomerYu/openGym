@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { exOr } from '../lib/exercises.js'
-import { effectiveRoutine, lastEntryFor, bestWeightFor, buildSets, setsDoneActive, supersetUnits, unitOf, setLabel, modeOf, isBw, isPerSide, sideReps, repStep, EFFORT, effortOf, stepEffort, capEffort } from '../lib/history.js'
+import { effectiveRoutine, lastEntryFor, bestWeightFor, buildSets, setsDoneActive, supersetUnits, unitOf, setLabel, activeLine, modeOf, isBw, isPerSide, sideReps, repStep, EFFORT, effortOf, stepEffort, capEffort } from '../lib/history.js'
 import { fmtNum, fmtDate, todayISO, exCount, DAYN } from '../lib/format.js'
 import { beep, vibrate } from '../lib/sound.js'
 import { t } from '../lib/i18n.js'
@@ -54,7 +54,7 @@ function Elapsed({ start }) {
 }
 
 /* ---------- one exercise block (reps: weight×reps · time: a held duration · cardio: duration+speed) ---------- */
-function ExerciseBlock({ entryIdx, compact, list, onToggle, onField, onAddSet, onRemoveSet, onStartTimed }) {
+function ExerciseBlock({ entryIdx, compact, rowsOnly, onToggle, onField, onAddSet, onRemoveSet, onStartTimed }) {
   const S = useStore(s => s.S)
   const working = useUI(s => s.work)
   const entry = S.active.entries[entryIdx]
@@ -108,37 +108,20 @@ function ExerciseBlock({ entryIdx, compact, list, onToggle, onField, onAddSet, o
       <button aria-label="Increase" onClick={() => bump(s, i, col, 1)}><Icon name="plus" /></button>
     </div>
   )
-  // The two tags that still earn their space in the whole-workout list: what kind of set
-  // this is, and — for unilateral work — the per-side split, without which the rep number
-  // on screen means two different things (issue #31).
-  const cardioTag = cardio ? <span className="tag acc"><Icon name="figureRun" />{t('Cardio')}</span> : null
-  const perSideTag = !cardio && !timed && isPerSide(cfg)
-    ? <span className="tag acc nocap"><Icon name="shuffle" />{t('{0} per side', fmtNum(sideReps(entry.sets.find(s => !s.done)?.r ?? entry.sets[0]?.r)))}</span>
-    : null
-  const doneN = entry.sets.filter(s => s.done).length
   return <>
-    {/* The whole-workout list trades the animation for a thumbnail and folds the tag row
-        into one subtitle: six autoplaying GIFs stacked down a page is not a session you
-        can read at a glance, which is the only reason to be in this view. */}
-    {list ? <>
-      <div className="row" style={{ gap: 10, marginBottom: 8 }}>
-        <Thumb ex={ex} />
-        <div className="grow" style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-.01em', textTransform: 'capitalize', lineHeight: 1.25 }}>{ex.n}</div>
-          <div className="muted small">{t('{0} sets', doneN + '/' + entry.sets.length)}{best > 0 ? ' · ' + t('Best:') + ' ' + fmtNum(best) + ' ' + S.unit : ''}</div>
-        </div>
-        <button className="iconbtn" aria-label={t('Details')} onClick={() => exerciseDetailSheet(ex)}><Icon name="info" /></button>
-      </div>
-      {(cardioTag || perSideTag) && <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>{cardioTag}{perSideTag}</div>}
-    </> : <>
+    {/* Expanded out of a condensed list row, the name, thumbnail and numbers are already on
+        the row above — only the set table is missing, so that is all this renders. */}
+    {!rowsOnly && <>
       <Media ex={ex} key={entry.id} compact={compact} minimizable />
       <div className="row between" style={{ marginBottom: 6 }}>
         <div style={{ fontSize: compact ? 17 : 20, fontWeight: 600, letterSpacing: '-.02em', textTransform: 'capitalize', lineHeight: 1.2 }}>{ex.n}</div>
         <button className="iconbtn" aria-label={t('Details')} onClick={() => exerciseDetailSheet(ex)}><Icon name="info" /></button>
       </div>
       <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
-        {cardioTag}
-        {perSideTag}
+        {cardio && <span className="tag acc"><Icon name="figureRun" />{t('Cardio')}</span>}
+        {/* You log the total; this is the split, so the set in front of you is unambiguous
+            without the rep count having to mean two different things (issue #31). */}
+        {!cardio && !timed && isPerSide(cfg) && <span className="tag acc nocap"><Icon name="shuffle" />{t('{0} per side', fmtNum(sideReps(entry.sets.find(s => !s.done)?.r ?? entry.sets[0]?.r)))}</span>}
         {(ex.tg || ex.bp) && <span className="tag">{t(ex.tg || ex.bp)}</span>}
         {ex.eq && <span className="tag">{t(ex.eq)}</span>}
         {best > 0 && <span className="tag nocap">{t('Best:')} {fmtNum(best)} {S.unit}</span>}
@@ -186,6 +169,9 @@ function ActiveWorkout() {
   const isSuperset = unit.length > 1
   // Which way the session is laid out, remembered across exercises and future workouts.
   const listView = S.workoutView === 'list'
+  // Which condensed rows are open. Deliberately not persisted: the list should come back
+  // collapsed every time, or it stops being the condensed view you switched to.
+  const [expanded, setExpanded] = useState([])
 
   const total = A.entries.reduce((n, e) => n + e.sets.length, 0)
   const done = setsDoneActive(A)
@@ -252,23 +238,57 @@ function ActiveWorkout() {
     else if (exJustDone && m === 'time') useUI.getState().toast(t('Hold logged'))
   }
 
-  // One unit — a single exercise, or a superset's exercises inside their shared card.
-  // Both views render through this, so a set row behaves identically in either.
+  // Focus: one unit at a time, full size — a single exercise, or a superset's exercises
+  // inside their shared card.
   const renderUnit = (u, key) => {
     const ss = u.length > 1
     const blocks = u.map((idx, k) => <div key={idx} className={ss ? 'ss-ex' : undefined}>
       {ss && k > 0 && <div className="ss-amp">+</div>}
-      <ExerciseBlock entryIdx={idx} compact={ss} list={listView}
+      <ExerciseBlock entryIdx={idx} compact={ss}
         onToggle={i => toggle(idx, i)} onField={(i, f, v) => setField(idx, i, f, v)}
         onAddSet={() => addSet(idx)} onRemoveSet={() => removeSet(idx)} onStartTimed={i => startTimed(idx, i)} />
     </div>)
-    return <div key={key} className={listView ? 'wl-ex' : undefined}>
+    return <div key={key}>
       {ss ? <div className="ss-card">
         <div className="ss-hd"><Icon name="link" />{t('Superset · do these back-to-back, rest after both')}</div>
         {blocks}
       </div> : blocks}
     </div>
   }
+
+  // List: the whole session as one scannable page. Each exercise is a single line — sets ×
+  // reps (or hold, or distance) and the weight actually in its rows — because the point of
+  // this view is seeing the shape of the session, not operating it. Tapping a line opens its
+  // set table in place, so logging never costs a trip back to the focus layout.
+  const renderRow = (idx, showSs) => {
+    const e = A.entries[idx]
+    const ex = exOr(e.id)
+    const doneN = e.sets.filter(x => x.done).length
+    const all = doneN === e.sets.length
+    const open = expanded.includes(idx)
+    return <div key={idx} className={'wl-row' + (all ? ' done' : '')}>
+      <button className="wl-hd" aria-expanded={open} onClick={() => setExpanded(v => v.includes(idx) ? v.filter(x => x !== idx) : [...v, idx])}>
+        <Thumb ex={ex} />
+        <span className="wl-m">
+          <span className="wl-n">{ex.n}</span>
+          <span className="wl-l">{activeLine(e, S.unit)}</span>
+        </span>
+        <span className="wl-c">{doneN}/{e.sets.length}</span>
+        <Icon name={open ? 'chevronDown' : 'chevronRight'} className="wl-x" />
+      </button>
+      {open && <div className="wl-b">
+        <ExerciseBlock entryIdx={idx} rowsOnly
+          onToggle={i => toggle(idx, i)} onField={(i, f, v) => setField(idx, i, f, v)}
+          onAddSet={() => addSet(idx)} onRemoveSet={() => removeSet(idx)} onStartTimed={i => startTimed(idx, i)} />
+      </div>}
+    </div>
+  }
+  const renderListUnit = (u, key) => u.length > 1
+    ? <div key={key} className="wl-u ss">
+        <div className="wl-ss"><Icon name="link" />{t('Superset')}</div>
+        {u.map(idx => renderRow(idx))}
+      </div>
+    : <div key={key} className="wl-u">{renderRow(u[0])}</div>
 
   // Live-presence heartbeat so the admin dashboard can show who's training now. Signed-in only —
   // guests have no server session. Reads fresh state each tick so progress stays current.
@@ -307,7 +327,7 @@ function ActiveWorkout() {
 
     {A.entries.length ? <>
       <div className="row between" style={{ marginBottom: 8 }}>
-        <div className="muted small">{listView ? t('{0} exercises · {1} sets', units.length, total)
+        <div className="muted small">{listView ? t('{0} exercises · {1} sets', A.entries.length, total)
           : isSuperset ? t('Superset {0} / {1}', unitIdx + 1, units.length) : t('Exercise {0} / {1}', unitIdx + 1, units.length)}</div>
         <Segmented className="seg-inline" value={listView ? 'list' : 'focus'}
           onChange={v => update(s => { s.workoutView = v })}
@@ -316,7 +336,7 @@ function ActiveWorkout() {
       {/* One exercise at a time, or the whole session on one page. Same rows either way —
           the list is a working view, not a preview: every set is still editable and
           checkable where it sits. */}
-      {(listView ? units : [unit]).map((u, k) => renderUnit(u, k))}
+      {listView ? units.map((u, k) => renderListUnit(u, k)) : renderUnit(unit, 0)}
     </> : <div className="empty"><div className="ico"><Icon name="shuffle" /></div>{t('Freestyle workout — add your first exercise.')}</div>}
 
     <div style={{ height: 12 }} />

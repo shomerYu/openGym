@@ -528,10 +528,41 @@ h4.sec{
 .ck.on svg{stroke:var(--on-acc)}
 
 /* ------------------------------------------------------------- workout --- */
-/* whole-workout list: exercises stacked down one page, each its own block. The gap has to
-   be bigger than the gap inside a block or the sets of one exercise read as the next one's. */
-.wl-ex{margin-bottom:26px}
-.wl-ex:last-child{margin-bottom:0}
+/* whole-workout list: one line per exercise — sets × reps and the weight in its rows — so a
+   session reads at a glance. Tapping a line opens its set table underneath, in place. */
+.wl-u{margin-bottom:10px}
+.wl-u:last-of-type{margin-bottom:0}
+.wl-u.ss{border:1px solid var(--acc);border-radius:var(--r-lg);padding:8px;background:var(--surface-2)}
+.wl-ss{
+  display:flex;align-items:center;gap:6px;color:var(--acc);
+  font-size:12px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;padding:2px 4px 8px;
+}
+.wl-row{background:var(--surface);border-radius:var(--r-lg);overflow:hidden}
+.wl-u.ss .wl-row{background:var(--surface);margin-bottom:6px}
+.wl-u.ss .wl-row:last-child{margin-bottom:0}
+.wl-hd{
+  display:flex;align-items:center;gap:11px;width:100%;padding:10px 12px;
+  background:none;border:0;color:inherit;text-align:left;font:inherit;cursor:pointer;
+}
+.wl-hd:active{opacity:.6}
+.wl-m{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.wl-n{
+  font-size:15px;font-weight:600;line-height:1.25;letter-spacing:-.01em;text-transform:capitalize;
+  /* one line for most names, a second only where the catalogue's naming runs long — losing
+     half of "Cable Lat Pulldown Full Range Of Motion" costs more than the row height does */
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+/* the numbers are the reason this view exists — tabular so they line up down the column */
+.wl-l{color:var(--label-2);font-size:13.5px;line-height:1.3;font-variant-numeric:tabular-nums}
+.wl-c{
+  color:var(--label-2);font-size:13px;font-variant-numeric:tabular-nums;flex:none;
+  padding:3px 8px;border-radius:99px;background:var(--surface-2);
+}
+.wl-row.done .wl-c{background:var(--acc);color:#000;font-weight:600}
+.wl-row.done .wl-n{color:var(--label-2)}
+.wl-x{color:var(--label-3);flex:none;font-size:14px;--icon-stroke:2.4}
+.wl-b{padding:0 12px 12px}
+.wl-b .card{margin-top:0}
 .wprog{height:4px;background:var(--surface-2);border-radius:99px;overflow:hidden;margin-bottom:16px}
 .wprog i{display:block;height:100%;background:var(--acc);border-radius:99px;transition:width var(--med) var(--ease)}
 .exmedia{position:relative;border-radius:var(--r-lg);overflow:hidden;background:#fff;margin-bottom:12px}

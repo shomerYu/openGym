@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { modeOf, isTimed, fmtSec, setLabel, defaultConfig, buildSets, exLine, workoutVolume, effortOf, stepEffort, capEffort, isBw, isPerSide, sideReps, repStep } from './history.js'
+import { modeOf, isTimed, fmtSec, setLabel, defaultConfig, buildSets, exLine, activeLine, workoutVolume, effortOf, stepEffort, capEffort, isBw, isPerSide, sideReps, repStep } from './history.js'
 import { EXDB } from './exercises.js'
 
 // Real ids out of the shipped catalogue, so the body-part fallback is exercised for real.
@@ -394,5 +394,48 @@ describe('workoutVolume', () => {
   it('leaves an unloaded bodyweight set at zero volume rather than inventing a number', () => {
     const w = { entries: [{ id: BW, target: { bodyweight: true }, sets: [{ w: 0, r: 20, done: true }] }] }
     expect(workoutVolume(w)).toBe(0)
+  })
+})
+
+describe('activeLine', () => {
+  const entry = (sets, target) => ({ id: LIFT, target: target || { mode: 'reps' }, sets })
+
+  it('collapses to one number per column when every set agrees', () => {
+    expect(activeLine(entry([{ w: 70, r: 10 }, { w: 70, r: 10 }, { w: 70, r: 10 }]), 'kg'))
+      .toBe('3 × 10 · 70 kg')
+  })
+
+  it('shows a range when the sets differ, so a ramp or a drop set stays visible', () => {
+    expect(activeLine(entry([{ w: 60, r: 10 }, { w: 70, r: 8 }]), 'kg'))
+      .toBe('2 × 8–10 · 60–70 kg')
+  })
+
+  it('reads the live sets, not the plan — progression is already in the rows', () => {
+    // target still says 60; the session was bumped to 70 when it was built
+    expect(activeLine(entry([{ w: 70, r: 10 }], { mode: 'reps', reps: 10, weight: 60 }), 'kg'))
+      .toBe('1 × 10 · 70 kg')
+  })
+
+  it('drops the load segment for an unloaded bodyweight set, and marks it added once loaded', () => {
+    const bw = { id: BW, target: { mode: 'reps', bodyweight: true }, sets: [{ w: 0, r: 12 }, { w: 0, r: 12 }] }
+    expect(activeLine(bw, 'kg')).toBe('2 × 12')
+    expect(activeLine({ ...bw, sets: [{ w: 10, r: 12 }] }, 'kg')).toBe('1 × 12 · +10 kg')
+  })
+
+  it('summarises a timed hold and a cardio block in their own units', () => {
+    expect(activeLine({ id: LIFT, target: { mode: 'time' }, sets: [{ sec: 45, w: 0 }, { sec: 45, w: 0 }] }, 'kg'))
+      .toBe('2 × 0:45')
+    expect(activeLine({ id: CARDIO, target: {}, sets: [{ min: 20, speed: 8 }] }, 'kg'))
+      .toBe('1 × 20 min @ 8 km/h')
+  })
+
+  it('spells out the per-side split, like exLine does', () => {
+    expect(activeLine({ id: LIFT, target: { mode: 'reps', side: true }, sets: [{ w: 20, r: 16 }] }, 'kg'))
+      .toBe('1 × 16 · 20 kg · 8/side')
+  })
+
+  it('falls back to the plan when the entry has no sets at all', () => {
+    expect(activeLine({ id: LIFT, target: { mode: 'reps', sets: 3, reps: 10, weight: 60 }, sets: [] }, 'kg'))
+      .toBe(exLine({ id: LIFT, mode: 'reps', sets: 3, reps: 10, weight: 60 }, 'kg'))
   })
 })
