@@ -55,7 +55,11 @@ jobs:
       # the web bundle into android/. Must run before Gradle sees the project.
       - name: Build web bundle and sync Capacitor
         working-directory: frontend
-        run: npm run build:mobile
+        env:
+          # Same number Gradle stamps as versionCode, so what Settings shows and what Android
+          # reports are never two different things.
+          RUN_NUMBER: ${{ github.run_number }}
+        run: VITE_BUILD="$((1000 + RUN_NUMBER))" npm run build:mobile
 
       - name: Decode keystore
         id: keystore

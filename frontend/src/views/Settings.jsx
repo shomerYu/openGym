@@ -189,6 +189,14 @@ export default function Settings() {
       <Row icon="download" iconTint="var(--blue)" title={t('Export backup (JSON)')} accessory="chevron" onClick={doExport} />
       <Row icon="trash" iconTint="var(--red)" title={t('Reset everything')} danger onClick={() => confirmSheet({ title: t('Reset everything?'), message: t('Deletes your plan, workouts and body weight on this device. This cannot be undone.'), confirmText: t('Delete everything'), danger: true, onConfirm: () => { replaceState(JSON.parse(JSON.stringify(DEF)), true); nav('/home'); toast(t('All data reset')) } })} />
     </Section>
+    {/* The first thing to check when an update seems not to have arrived. A build number that
+        did not change is an install that did not take, which otherwise looks exactly like a
+        feature that was never shipped. */}
+    <Section title={t('About')}>
+      <Row icon="info" iconTint="var(--grey)" title={t('Version')}
+        value={'openGym ' + __APP_VERSION__ + ' · ' + t('build {0}', __APP_BUILD__)} />
+    </Section>
+
     <input ref={fileRef} type="file" accept=".json,application/json" style={{ display: 'none' }} onChange={doImport} />
     {/* Reset after reading so picking the same file twice still fires onChange. */}
     <input ref={importRef} type="file" accept=".csv,.xml,text/csv,text/xml" style={{ display: 'none' }}
