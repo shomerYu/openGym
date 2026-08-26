@@ -58,14 +58,32 @@ jobs:
         id: keystore
         env:
           KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
-          if [ -n "$KEYSTORE_B64" ]; then
-            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
-            echo "signed=true" >> "$GITHUB_OUTPUT"
-          else
+          set -uo pipefail
+          if [ -z "${KEYSTORE_B64:-}" ]; then
             echo "No signing keystore configured — building the debug APK."
             echo "signed=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          KS="$RUNNER_TEMP/release.keystore"
+          # Pasting a few thousand base64 characters through a browser field routinely picks up
+          # wrapped lines and stray spaces. None of that is part of the data, so strip it rather
+          # than failing on it — the old `echo | base64 -d` died with a bare "invalid input".
+          if ! printf '%s' "$KEYSTORE_B64" | tr -d '[:space:]' | base64 -d > "$KS" 2>/dev/null; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 is not valid base64. Re-set it straight from the file so nothing can mangle it in transit: gh secret set ANDROID_KEYSTORE_BASE64 --repo ${{ github.repository }} --body \"\$(base64 -w0 /path/to/opengym.keystore)\"  (on macOS: base64 -i /path/to/opengym.keystore | tr -d '\\n')"
+            exit 1
+          fi
+          # A truncated paste still decodes cleanly but is not a keystore, and a wrong password
+          # only surfaces at signing time — several minutes of Gradle later. Check both now.
+          if ! keytool -list -keystore "$KS" -storepass "$KS_PASS" -alias "$KS_ALIAS" >/dev/null 2>&1; then
+            echo "::error::The keystore decoded but could not be opened. Either ANDROID_KEYSTORE_BASE64 is incomplete (a truncated copy-paste), ANDROID_KEYSTORE_PASSWORD is wrong, or ANDROID_KEY_ALIAS does not match the alias used with keytool -genkeypair."
+            exit 1
+          fi
+          echo "Keystore decoded and opened. Signing certificate:"
+          keytool -list -keystore "$KS" -storepass "$KS_PASS" -alias "$KS_ALIAS" | grep -i 'SHA-256' || true
+          echo "signed=true" >> "$GITHUB_OUTPUT"
 
       - name: Build signed release APK
         if: steps.keystore.outputs.signed == 'true'
