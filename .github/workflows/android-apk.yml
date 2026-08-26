@@ -71,8 +71,20 @@ jobs:
           # Pasting a few thousand base64 characters through a browser field routinely picks up
           # wrapped lines and stray spaces. None of that is part of the data, so strip it rather
           # than failing on it — the old `echo | base64 -d` died with a bare "invalid input".
-          if ! printf '%s' "$KEYSTORE_B64" | tr -d '[:space:]' | base64 -d > "$KS" 2>/dev/null; then
-            echo "::error::ANDROID_KEYSTORE_BASE64 is not valid base64. Re-set it straight from the file so nothing can mangle it in transit: gh secret set ANDROID_KEYSTORE_BASE64 --repo ${{ github.repository }} --body \"\$(base64 -w0 /path/to/opengym.keystore)\"  (on macOS: base64 -i /path/to/opengym.keystore | tr -d '\\n')"
+          CLEAN="$(printf '%s' "$KEYSTORE_B64" | tr -d '[:space:]')"
+          if ! printf '%s' "$CLEAN" | base64 -d > "$KS" 2>/dev/null; then
+            # The length and shape of the value are not the key itself, and knowing them turns
+            # "invalid input" into an obvious diagnosis — a pasted path is ~40 characters, a real
+            # 2048-bit keystore is a few thousand.
+            echo "Secret length after removing whitespace: ${#CLEAN} characters."
+            echo "For reference, a 2048-bit keystore is roughly 3000-4000 characters of base64."
+            case "$CLEAN" in
+              *-----BEGIN*|*-----END*)
+                echo "It looks like PEM output — certutil -encode and openssl wrap the data in BEGIN/END header lines, which are not base64. Use plain base64 encoding instead." ;;
+              /*|*:\\*|*.keystore|*.jks|*.p12)
+                echo "It looks like a file PATH rather than the file's CONTENTS. The secret must hold the encoded bytes, not where the file lives." ;;
+            esac
+            echo "::error::ANDROID_KEYSTORE_BASE64 is not valid base64. Set it straight from the file so nothing can mangle it in transit — from a clone or a Codespace: gh secret set ANDROID_KEYSTORE_BASE64 --repo ${{ github.repository }} --body \"\$(base64 -w0 /path/to/opengym.keystore)\"  (on macOS: base64 -i /path/to/opengym.keystore | tr -d '\\n')"
             exit 1
           fi
           # A truncated paste still decodes cleanly but is not a keystore, and a wrong password
