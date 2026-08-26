@@ -74,8 +74,9 @@ jobs:
           KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KS_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KS_KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          VERSION_CODE: ${{ 1000 + github.run_number }}
         run: |
-          ./gradlew assembleRelease --no-daemon
+          ./gradlew assembleRelease --no-daemon -PversionCodeOverride=$VERSION_CODE
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
           UNSIGNED=app/build/outputs/apk/release/app-release-unsigned.apk
           "$BT/zipalign" -f -p 4 "$UNSIGNED" "$RUNNER_TEMP/aligned.apk"
@@ -90,8 +91,10 @@ jobs:
       - name: Build debug APK
         if: steps.keystore.outputs.signed == 'false'
         working-directory: frontend/android
+        env:
+          VERSION_CODE: ${{ 1000 + github.run_number }}
         run: |
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug --no-daemon -PversionCodeOverride=$VERSION_CODE
           cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/openGym.apk"
 
       - uses: actions/upload-artifact@v4

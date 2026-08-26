@@ -7,7 +7,10 @@ android {
         applicationId "ch.duartesantos.opengym"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 5
+        // CI passes -PversionCodeOverride=<run number + offset> so each build outranks the
+        // last and Android accepts it as an update; a local build with no property set keeps
+        // the number checked in here. Android refuses a lower versionCode outright.
+        versionCode (project.findProperty('versionCodeOverride') ?: '5').toString().toInteger()
         versionName "1.2.4"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
