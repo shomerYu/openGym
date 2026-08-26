@@ -24,6 +24,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Needed to publish the release below. Everything else here only reads.
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -132,3 +135,28 @@ jobs:
           name: openGym-apk
           path: ${{ runner.temp }}/openGym.apk
           if-no-files-found: error
+
+      # An Actions artifact is a zip behind a login, which makes updating the app a five-step
+      # errand. A release asset is a plain file at a permanent URL, so the phone can fetch the
+      # APK directly and the newest one always lives at:
+      #   https://github.com/<repo>/releases/latest/download/openGym.apk
+      # Signed builds only — publishing a debug APK here would hand out something that cannot
+      # install over a real one, under a link that implies it can.
+      - name: Publish release
+        if: steps.keystore.outputs.signed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          VC="$((1000 + RUN_NUMBER))"
+          VN="$(sed -n 's/.*versionName "\([^"]*\)".*/\1/p' frontend/android/app/build.gradle)"
+          cp "$RUNNER_TEMP/openGym.apk" openGym.apk
+          gh release create "build-$VC" openGym.apk \
+            --title "openGym $VN ($VC)" \
+            --latest \
+            --notes "Signed APK built from ${{ github.sha }}.
+
+          Installs straight over the previous version — no uninstall, data kept.
+
+          Always-newest link: https://github.com/${{ github.repository }}/releases/latest/download/openGym.apk"
