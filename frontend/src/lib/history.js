@@ -1,6 +1,6 @@
 // Pure helpers over the state object S (ported 1:1 from the vanilla app).
 import { todayISO, isoOf, weekKey, fmtNum } from './format.js'
-import { isCardio, isBodyweightEq } from './exercises.js'
+import { isCardio, isBodyweightEq, EXIDX } from './exercises.js'
 import { t } from './i18n.js'
 
 // How an exercise is logged (issue #16). This used to be derived from the body part alone,
@@ -114,8 +114,12 @@ export function defaultConfig(id, mode) {
   // Written only when it is true, so a barbell config is byte-for-byte what it was before
   // the flag existed and a plan file gains nothing it does not need.
   const bw = isBodyweightEq(id) ? { bodyweight: true } : {}
-  if (m === 'time') return { sets: 3, sec: 45, weight: 0, mode: 'time', ...bw }
-  return { sets: 3, reps: 10, weight: 0, mode: 'reps', ...bw }
+  // A custom exercise can carry the weight you actually load it with — a fixed-weight machine,
+  // a loaded carry — so a fresh config starts there instead of at 0. Catalogue exercises have
+  // no such field and keep the 0 they always had.
+  const w = (EXIDX[id] || {}).w || 0
+  if (m === 'time') return { sets: 3, sec: 45, weight: w, mode: 'time', ...bw }
+  return { sets: 3, reps: 10, weight: w, mode: 'reps', ...bw }
 }
 // One-line summary of a planned exercise ("3 × 10 · 60 kg"), shared by the routine editor
 // and the plan export so a mode is described the same way everywhere.

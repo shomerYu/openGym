@@ -67,6 +67,18 @@ const BY_BODYPART = {
   cardio: {},
 }
 
+/**
+ * The slug the body map draws for a muscle name, or '' if it draws none.
+ *
+ * A muscle picked in the app is stored as the slug itself, so it needs no alias; the dataset's
+ * free text still goes through ALIAS. Checking canonical first also rescues the few dataset
+ * spellings that are already slugs ("serratus"), which ALIAS alone would drop.
+ */
+export const canonMuscle = name => {
+  const key = String(name || '').toLowerCase().trim()
+  return (MUSCLES.includes(key) ? key : ALIAS[key]) || ''
+}
+
 const SECONDARY = 0.4   // a supporting muscle counts this much against a primary
 
 /** Muscles one exercise trains: { slug: 0…1 }. */
@@ -74,7 +86,7 @@ export function musclesOf(ex) {
   if (!ex) return {}
   const out = {}
   const add = (name, w) => {
-    const slug = ALIAS[String(name || '').toLowerCase().trim()]
+    const slug = canonMuscle(name)
     if (slug) out[slug] = Math.max(out[slug] || 0, w)
   }
   add(ex.tg, 1)

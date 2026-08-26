@@ -37,7 +37,10 @@ export function t(s, ...args) {
   return v
 }
 // Instructions for an exercise in the current language (English steps as fallback).
-export const instrFor = ex => (instr && instr[ex.id]) || ex.st || []
+// A duplicate carries `src`, the id it was copied from. The instruction packs are keyed by id,
+// so trying the source id means a duplicate reads in the user's language too — its own id will
+// never be in a pack. `st` (copied from the source) is the English fallback, as for any exercise.
+export const instrFor = ex => (instr && (instr[ex.id] || (ex.src && instr[ex.src]))) || ex.st || []
 
 export async function setLang(l) {
   if (!LANGS[l]) l = 'en'

@@ -14,7 +14,7 @@ import Icon from './components/Icon.jsx'
 import { Button, Slider, Switch, Segmented, SelectRow, Row } from './components/ui.jsx'
 import { glyphOf, GLYPH_GROUPS, DEFAULT_GLYPH } from './lib/glyphs.js'
 import BodyMap from './components/BodyMap.jsx'
-import { loadOfWorkouts } from './lib/muscles.js'
+import { loadOfWorkouts, MUSCLES, MUSCLE_NAME, canonMuscle } from './lib/muscles.js'
 import { parseImport, mergeImport } from './lib/import-csv.js'
 import { buildPlanBundle, parsePlan, mergePlan, printPlan } from './lib/plan-share.js'
 import { estimate1RM, best1RM, is1RMRecord, REP_CAP } from './lib/onerm.js'
@@ -296,6 +296,9 @@ function ExerciseDetail({ ex, close }) {
     {ex.desc && <div className="exnote">{ex.desc}</div>}
     {best > 0 && <div className="small row" style={{ marginBottom: 6, gap: 5 }}><Icon name="trophy" style={{ fontSize: 14, color: 'var(--yellow)' }} />{t('Best:')} <b className="accent">{fmtNum(best)} {st.unit}</b>{last ? ` · ${t('last')} ${fmtDate(last.d)}: ${last.sets.map(s => setLabel(ex.id, s, last.target)).join(', ')}` : ''}</div>}
     <Button variant="primary" icon="plus" style={{ margin: '10px 0 4px' }} onClick={() => addToRoutineSheet(ex)}>{t('Add to my plan')}</Button>
+    {/* Duplicating beats editing the catalogue in place: the original stays intact for
+        everyone else's plans and for the history already logged against it. */}
+    <Button icon="clipboard" style={{ marginBottom: 4 }} onClick={() => { close(); duplicateExSheet(ex, e => exerciseDetailSheet(e)) }}>{t('Duplicate & edit')}</Button>
     {ex.custom && <div className="row" style={{ gap: 8, marginTop: 8 }}>
       <Button icon="pencil" style={{ flex: 1 }} onClick={() => { close(); customExSheet(ex) }}>{t('Edit')}</Button>
       <Button variant="danger" icon="trash" style={{ flex: 1 }} onClick={() => deleteCustomEx(ex, close)}>{t('Delete')}</Button>
@@ -342,43 +345,122 @@ export const addToRoutineSheet = ex => ui().openSheet(close => <AddToRoutine ex=
 /* ============================ custom exercises (issue #11) ============================ */
 // Name + body part is all it takes — the exercise then behaves like any built-in one
 // (planning, logging, PRs, stats), just without an animation.
-function CustomExForm({ existing, prefill, onDone, close }) {
-  const [n, setN] = useState(existing ? existing.n : (prefill || ''))
-  const [bp, setBp] = useState(existing ? existing.bp : '')
-  const [desc, setDesc] = useState(existing ? (existing.desc || '') : '')
+/* ---------------------------------------------------------------------------
+   Custom exercise editor. Three ways in, one form:
+     - from scratch      (Library → Create your own)
+     - duplicated        (any exercise → Duplicate) — everything copied but the id
+     - editing your own  (a custom exercise → Edit)
+
+   A duplicate is the useful case: the catalogue has the movement but calls it
+   something else, hits a muscle you disagree with, or assumes a barbell when your
+   gym has a machine. Everything here is editable except the animation, which can
+   only be kept or dropped — there is nothing to point a new one at.
+--------------------------------------------------------------------------- */
+const EQUIPMENT = [...new Set(EXDB.map(e => e.eq).filter(Boolean))].sort()
+
+function CustomExForm({ existing, source, prefill, onDone, close }) {
+  const st = useStore(s => s.S)
+  // `source` is the exercise being duplicated; `existing` one already saved. Either seeds the
+  // form, and from here on the two behave identically — a duplicate is just a custom exercise
+  // that started life pre-filled.
+  const seed = existing || source || {}
+  const [n, setN] = useState(existing ? existing.n : source ? t('{0} (copy)', source.n) : (prefill || ''))
+  const [bp, setBp] = useState(seed.bp || '')
+  const [eq, setEq] = useState(seed.eq && seed.eq !== 'custom' ? seed.eq : '')
+  const [tg, setTg] = useState(canonMuscle(seed.tg))
+  const [sm, setSm] = useState(() => (seed.sm || []).map(canonMuscle).filter(Boolean))
+  const [w, setW] = useState(seed.w || 0)
+  const [desc, setDesc] = useState(seed.desc || '')
+  // Media can be kept or dropped, never replaced. `src` is remembered either way so turning it
+  // back on can find the files again — and so the instructions keep resolving.
+  const srcId = existing ? existing.src : (source && !source.custom ? source.id : null)
+  const hasMedia = !!(srcId && (EXIDX[srcId] || {}).gif)
+  const [vid, setVid] = useState(existing ? !!existing.gif : true)
+
+  const toggleSm = m => setSm(v => v.includes(m) ? v.filter(x => x !== m) : [...v, m])
+
   const save = () => {
     const name = n.trim()
     if (!name) { toast(t('Give it a name')); return }
     if (!bp) { toast(t('Pick a body part')); return }
     const dup = allExercises(S()).find(e => e.n.toLowerCase() === name.toLowerCase() && e.id !== (existing || {}).id)
     if (dup) { toast(t('“{0}” already exists', dup.n)); return }
-    const d = desc.trim().slice(0, 1000)
-    let id = existing && existing.id
-    if (existing) update(s => { const c = (s.customEx || []).find(x => x.id === id); if (c) { c.n = name; c.bp = bp; c.desc = d } })
-    else {
-      id = 'c' + uid()
-      update(s => { (s.customEx = s.customEx || []).push({ id, n: name, bp, desc: d, tg: '', eq: 'custom', custom: true }) })
+    const from = srcId ? EXIDX[srcId] : null
+    const body = {
+      n: name, bp, desc: desc.trim().slice(0, 1000),
+      tg: tg || '', sm, eq: eq || 'custom',
+      // Only written when set, so an exercise you load nothing onto stays as small as it was.
+      ...(w > 0 ? { w } : {}),
+      ...(srcId ? { src: srcId } : {}),
+      // Copied rather than referenced: the animation keeps working even if the duplicate later
+      // outlives whatever it came from. Dropped entirely when the toggle is off, which is all
+      // Media and Thumb need to fall back to the placeholder.
+      ...(vid && from && from.gif ? { gif: from.gif, img: from.img } : {}),
+      // The English fallback for the "How to" list; translations resolve through `src`.
+      ...(from && from.st ? { st: from.st } : {}),
+      custom: true
     }
+    let id = existing && existing.id
+    if (existing) update(s => {
+      const c = (s.customEx || []).find(x => x.id === id)
+      if (c) { Object.keys(c).forEach(k => { if (k !== 'id') delete c[k] }); Object.assign(c, body) }
+    })
+    else { id = 'c' + uid(); update(s => { (s.customEx = s.customEx || []).push({ id, ...body }) }) }
     close()
     toast(existing ? t('Saved') : t('“{0}” created', name))
     onDone && onDone(EXIDX[id])
   }
+
+  const chips = (opts, val, set, label) => <div className="chips wrap" style={{ marginBottom: 12 }}>
+    {opts.map(o => <button key={o} className={'chip' + ((Array.isArray(val) ? val.includes(o) : val === o) ? ' on' : '')}
+      onClick={() => set(o)}>{label ? label(o) : t(o)}</button>)}
+  </div>
+
   return <>
-    <h3>{existing ? t('Edit custom exercise') : t('Create your own exercise')}</h3>
-    <div className="muted small" style={{ marginBottom: 12 }}>{t('Name it and pick a body part — it behaves like any other exercise, just without an animation.')}</div>
-    <input className="input" placeholder={t('Exercise name')} value={n} onChange={e => setN(e.target.value)} />
-    <div className="chips" style={{ margin: '12px 0' }}>
-      {BODYPARTS.map(b => <button key={b} className={'chip' + (bp === b ? ' on' : '')} onClick={() => setBp(b)}>{t(b)}</button>)}
+    <h3>{existing ? t('Edit custom exercise') : source ? t('Duplicate exercise') : t('Create your own exercise')}</h3>
+    <div className="muted small" style={{ marginBottom: 12 }}>
+      {source ? t('A copy of “{0}” that is yours to change — rename it, fix the muscles, set the weight you actually use.', source.n)
+        : t('It behaves like any other exercise. Everything here can be changed later.')}
     </div>
+
+    <input className="input" placeholder={t('Exercise name')} value={n} onChange={e => setN(e.target.value)} />
+    <div style={{ height: 12 }} />
+
+    <h4 className="sec">{t('Body part')}</h4>
+    {chips(BODYPARTS, bp, setBp)}
     {bp === 'cardio' && <div className="small dim row" style={{ marginBottom: 10, gap: 5 }}><Icon name="figureRun" style={{ fontSize: 13 }} />{t('Cardio exercises log time + speed instead of weight × reps.')}</div>}
-    <textarea className="input" rows={4} maxLength={1000} placeholder={t('Description (optional) — setup, cues, anything you want to remember')}
+
+    {bp !== 'cardio' && <>
+      <h4 className="sec">{t('Equipment')}</h4>
+      {chips(EQUIPMENT, eq, v => setEq(v === eq ? '' : v))}
+      {eq === 'body weight' && <div className="small dim row" style={{ marginBottom: 10, gap: 5 }}><Icon name="info" style={{ fontSize: 13 }} />{t('Bodyweight exercises log reps only — add a weight below if you use a belt.')}</div>}
+
+      {/* These drive the body map directly, which is the whole reason to edit them: a movement
+          the catalogue files under the wrong muscle shades the wrong part of your week. */}
+      <h4 className="sec">{t('Main muscle')}</h4>
+      {chips(MUSCLES, tg, v => setTg(v === tg ? '' : v), m => t(MUSCLE_NAME[m]))}
+
+      <h4 className="sec">{t('Also works')}</h4>
+      {chips(MUSCLES.filter(m => m !== tg), sm, toggleSm, m => t(MUSCLE_NAME[m]))}
+
+      <Stepper label={t('Default weight ({0})', st.unit)} value={w} step={2.5} onChange={v => setW(Math.max(0, v || 0))} />
+      <div className="small dim" style={{ margin: '6px 0 12px' }}>{t('What a new plan starts this exercise at. Leave at 0 to decide per plan.')}</div>
+    </>}
+
+    {hasMedia && <Row icon="play" iconTint="var(--indigo)" title={t('Show the animation')} subtitle={t('The copied clip from “{0}”.', (EXIDX[srcId] || {}).n)}>
+      <Switch checked={vid} onChange={setVid} />
+    </Row>}
+
+    <div style={{ height: 12 }} />
+    <textarea className="input" rows={3} maxLength={1000} placeholder={t('Description (optional) — setup, cues, anything you want to remember')}
       value={desc} onChange={e => setDesc(e.target.value)} />
     <div style={{ height: 14 }} />
-    <Button variant="primary" onClick={save}>{existing ? t('Save') : t('Create exercise')}</Button>
+    <Button variant="primary" onClick={save}>{existing ? t('Save') : source ? t('Create copy') : t('Create exercise')}</Button>
     {existing && <><div style={{ height: 8 }} /><Button variant="danger" icon="trash" onClick={() => { close(); deleteCustomEx(existing) }}>{t('Delete exercise')}</Button></>}
   </>
 }
 export const customExSheet = (existing, onDone, prefill) => ui().openSheet(close => <CustomExForm existing={existing} prefill={prefill} onDone={onDone} close={close} />)
+export const duplicateExSheet = (source, onDone) => ui().openSheet(close => <CustomExForm source={source} onDone={onDone} close={close} />)
 
 export function deleteCustomEx(ex, afterDelete) {
   if (S().active?.entries.some(e => e.id === ex.id)) { toast(t('Finish your current workout first')); return }

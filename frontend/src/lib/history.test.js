@@ -258,6 +258,15 @@ describe('defaultConfig', () => {
     expect(defaultConfig(CARDIO)).toEqual({ sets: 1, min: 20, speed: 8 })
     expect(defaultConfig(LIFT, 'time')).toEqual({ sets: 3, sec: 45, weight: 0, mode: 'time' })
   })
+  it('starts a config at a custom exercise\u2019s default weight, and at 0 for the catalogue', async () => {
+    const { registerCustom } = await import('./exercises.js')
+    registerCustom([{ id: 'cW', n: 'Loaded carry', bp: 'waist', w: 45 }])
+    expect(defaultConfig('cW')).toEqual({ sets: 3, reps: 10, weight: 45, mode: 'reps' })
+    expect(defaultConfig('cW', 'time')).toEqual({ sets: 3, sec: 45, weight: 45, mode: 'time' })
+    expect(defaultConfig(LIFT).weight).toBe(0)
+    registerCustom([])
+  })
+
   it('seeds the bodyweight flag from the catalogue, and only when it is true', () => {
     expect(defaultConfig(BW)).toEqual({ sets: 3, reps: 10, weight: 0, mode: 'reps', bodyweight: true })
     expect(defaultConfig(BW, 'time')).toEqual({ sets: 3, sec: 45, weight: 0, mode: 'time', bodyweight: true })

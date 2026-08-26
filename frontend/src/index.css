@@ -366,6 +366,10 @@ h4.sec{
   scrollbar-width:none;-webkit-overflow-scrolling:touch;
 }
 .chips::-webkit-scrollbar{display:none}
+/* In a form, wrap instead of scrolling: a hidden-scrollbar row conceals both the options you
+   have not seen and the ones already picked, which matters most for a long multi-select. The
+   Library's filter bars keep scrolling — there, a compact header is worth more. */
+.chips.wrap{flex-wrap:wrap;overflow-x:visible}
 .chip{
   flex:none;padding:6px 13px;border-radius:99px;background:var(--surface);
   font-size:14px;font-weight:400;color:var(--label);text-transform:capitalize;
