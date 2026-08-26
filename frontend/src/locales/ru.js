@@ -345,6 +345,8 @@ export default {
   'Body part': 'Часть тела',
   'Bodyweight exercises log reps only — add a weight below if you use a belt.': 'Упражнения с весом тела записывают только повторения — добавь вес ниже, если используешь пояс.',
   'Main muscle': 'Основная мышца',
+  'It’s a stretch': 'Это растяжка',
+  'Still logged, but it won’t count toward the muscles you trained.': 'По-прежнему записывается, но не засчитывается в проработанные мышцы.',
   'Also works': 'Также работают',
   'Default weight ({0})': 'Вес по умолчанию ({0})',
   'What a new plan starts this exercise at. Leave at 0 to decide per plan.': 'С чего новый план начинает это упражнение. Оставь 0, чтобы решать в каждом плане.',

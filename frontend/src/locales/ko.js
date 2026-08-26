@@ -345,6 +345,8 @@ export default {
   'Body part': '신체 부위',
   'Bodyweight exercises log reps only — add a weight below if you use a belt.': '맨몸 운동은 횟수만 기록합니다 — 벨트를 쓴다면 아래에 무게를 추가하세요.',
   'Main muscle': '주요 근육',
+  'It’s a stretch': '스트레칭입니다',
+  'Still logged, but it won’t count toward the muscles you trained.': '기록은 되지만 운동한 근육에는 포함되지 않습니다.',
   'Also works': '함께 쓰는 근육',
   'Default weight ({0})': '기본 무게 ({0})',
   'What a new plan starts this exercise at. Leave at 0 to decide per plan.': '새 플랜이 이 운동을 시작할 무게입니다. 0으로 두면 플랜마다 정합니다.',

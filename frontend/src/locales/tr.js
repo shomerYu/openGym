@@ -345,6 +345,8 @@ export default {
   'Body part': 'Vücut bölgesi',
   'Bodyweight exercises log reps only — add a weight below if you use a belt.': 'Vücut ağırlığı egzersizleri yalnızca tekrar kaydeder — kemer kullanıyorsan aşağıya ağırlık ekle.',
   'Main muscle': 'Ana kas',
+  'It’s a stretch': 'Bu bir esneme',
+  'Still logged, but it won’t count toward the muscles you trained.': 'Yine kaydedilir ama çalıştırdığın kaslara sayılmaz.',
   'Also works': 'Ayrıca çalıştırır',
   'Default weight ({0})': 'Varsayılan ağırlık ({0})',
   'What a new plan starts this exercise at. Leave at 0 to decide per plan.': 'Yeni bir planın bu egzersize başlayacağı değer. Her planda ayrı karar vermek için 0 bırak.',

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { canonMuscle, musclesOf, MUSCLES } from './muscles.js'
+import { canonMuscle, musclesOf, loadOf, MUSCLES } from './muscles.js'
 
 describe('canonMuscle', () => {
   it('passes through the slugs the app itself stores', () => {
@@ -48,5 +48,33 @@ describe('musclesOf', () => {
     expect(musclesOf({ bp: 'chest', tg: '', sm: [] })).toEqual({ chest: 1 })
     expect(musclesOf({ bp: 'upper legs', tg: '', sm: [] }))
       .toEqual({ quadriceps: 0.4, hamstring: 0.35, gluteal: 0.25 })
+  })
+})
+
+describe('stretches', () => {
+  it('train nothing, even with muscles set on them', () => {
+    // The flag wins over whatever is stored: a duplicate made before it was ticked keeps its
+    // muscles in state, and must still stop counting the moment it is marked a stretch.
+    expect(musclesOf({ id: 'c1', bp: 'upper legs', tg: 'hamstring', sm: ['gluteal'], stretch: true }))
+      .toEqual({})
+  })
+
+  it('do not fall through to the body-part fallback', () => {
+    // The failure this guards: a stretch with no muscles picked looks exactly like a
+    // from-scratch custom exercise, which shades its whole body part.
+    expect(musclesOf({ id: 'c2', bp: 'upper legs', tg: '', sm: [], stretch: true })).toEqual({})
+    expect(musclesOf({ id: 'c3', bp: 'upper legs', tg: '', sm: [] })).not.toEqual({})
+  })
+
+  it('contribute nothing to a body map built from real sets', async () => {
+    const { registerCustom } = await import('./exercises.js')
+    registerCustom([
+      { id: 'sHam', n: 'Hamstring stretch', bp: 'upper legs', stretch: true },
+      { id: 'cRow', n: 'Row', bp: 'back', tg: 'upper-back', sm: [] },
+    ])
+    // Four sets of stretching alongside two of rowing: only the rowing shades anything.
+    expect(loadOf([{ id: 'sHam', sets: 4 }, { id: 'cRow', sets: 2 }])).toEqual({ 'upper-back': 2 })
+    expect(loadOf([{ id: 'sHam', sets: 4 }])).toEqual({})
+    registerCustom([])
   })
 })

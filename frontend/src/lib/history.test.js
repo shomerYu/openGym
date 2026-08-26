@@ -19,6 +19,16 @@ describe('modeOf', () => {
     expect(modeOf(undefined)).toBe('reps')
   })
 
+  it('starts a stretch as a timed hold, since a stretch is held rather than repeated', async () => {
+    const { registerCustom } = await import('./exercises.js')
+    registerCustom([{ id: 'sX', n: 'Calf stretch', bp: 'lower legs', stretch: true }])
+    expect(modeOf({ id: 'sX' })).toBe('time')
+    expect(defaultConfig('sX')).toEqual({ sets: 3, sec: 45, weight: 0, mode: 'time' })
+    // …but only as a default: counting a stretch in reps stays possible.
+    expect(modeOf({ id: 'sX', mode: 'reps' })).toBe('reps')
+    registerCustom([])
+  })
+
   it('lets an explicit mode win over the body part', () => {
     expect(modeOf({ id: LIFT, mode: 'time' })).toBe('time')
     expect(modeOf({ id: CARDIO, mode: 'reps' })).toBe('reps')

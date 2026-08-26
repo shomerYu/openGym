@@ -44,6 +44,13 @@ export const isCardio = idOrEx => (typeof idOrEx === 'string' ? EXIDX[idOrEx] : 
 export const isBodyweightEq = idOrEx =>
   (typeof idOrEx === 'string' ? EXIDX[idOrEx] : idOrEx)?.eq === 'body weight'
 
+// A stretch is logged like any other exercise — sets, holds, even an assisted load — but it is
+// not training a muscle, so it contributes nothing to any muscle map (see musclesOf). The flag
+// sits on the exercise rather than the plan config: a movement either is a stretch or is not.
+// The catalogue has no stretch category — its 57 "… stretch" entries are filed as ordinary
+// exercises — so this is only ever set by hand, on your own exercises.
+export const isStretch = idOrEx => !!(typeof idOrEx === 'string' ? EXIDX[idOrEx] : idOrEx)?.stretch
+
 // An id that resolves to nothing — a plan file built against a different exercise dataset,
 // a custom exercise deleted on another device before the sync arrived — still has to
 // render. A placeholder keeps it visible (and removable) instead of taking the whole view

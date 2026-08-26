@@ -345,6 +345,8 @@ export default {
   'Body part': 'Parte do corpo',
   'Bodyweight exercises log reps only — add a weight below if you use a belt.': 'Exercícios de peso corporal registam só repetições — adiciona um peso abaixo se usares cinto.',
   'Main muscle': 'Músculo principal',
+  'It’s a stretch': 'É um alongamento',
+  'Still logged, but it won’t count toward the muscles you trained.': 'Continua a ser registado, mas não conta para os músculos treinados.',
   'Also works': 'Também trabalha',
   'Default weight ({0})': 'Peso padrão ({0})',
   'What a new plan starts this exercise at. Leave at 0 to decide per plan.': 'Com que valor um plano novo começa este exercício. Deixa a 0 para decidir por plano.',

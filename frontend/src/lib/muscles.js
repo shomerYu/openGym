@@ -84,6 +84,9 @@ const SECONDARY = 0.4   // a supporting muscle counts this much against a primar
 /** Muscles one exercise trains: { slug: 0…1 }. */
 export function musclesOf(ex) {
   if (!ex) return {}
+  // Before anything else, including the body-part fallback below: a stretch with no muscles
+  // picked would otherwise fall through and shade its whole body part.
+  if (ex.stretch) return {}
   const out = {}
   const add = (name, w) => {
     const slug = canonMuscle(name)

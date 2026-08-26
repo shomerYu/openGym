@@ -371,6 +371,10 @@ function CustomExForm({ existing, source, prefill, onDone, close }) {
   const [sm, setSm] = useState(() => (seed.sm || []).map(canonMuscle).filter(Boolean))
   const [w, setW] = useState(seed.w || 0)
   const [desc, setDesc] = useState(seed.desc || '')
+  // Pre-ticked when the source is one of the catalogue's "… stretch" entries. Only a default in
+  // a form you are looking at — the catalogue itself is left alone, so no existing muscle map
+  // changes underneath anyone.
+  const [stretch, setStretch] = useState(() => existing ? !!existing.stretch : !!(source && /\bstretch(es|ing)?\b/i.test(source.n || '')))
   // Media can be kept or dropped, never replaced. `src` is remembered either way so turning it
   // back on can find the files again — and so the instructions keep resolving.
   const srcId = existing ? existing.src : (source && !source.custom ? source.id : null)
@@ -388,7 +392,10 @@ function CustomExForm({ existing, source, prefill, onDone, close }) {
     const from = srcId ? EXIDX[srcId] : null
     const body = {
       n: name, bp, desc: desc.trim().slice(0, 1000),
-      tg: tg || '', sm, eq: eq || 'custom',
+      eq: eq || 'custom',
+      // A stretch stores no muscles: musclesOf ignores them, and keeping them would suggest a
+      // contribution to the body map that will never happen.
+      ...(stretch ? { stretch: true, tg: '', sm: [] } : { tg: tg || '', sm }),
       // Only written when set, so an exercise you load nothing onto stays as small as it was.
       ...(w > 0 ? { w } : {}),
       ...(srcId ? { src: srcId } : {}),
@@ -435,13 +442,24 @@ function CustomExForm({ existing, source, prefill, onDone, close }) {
       {chips(EQUIPMENT, eq, v => setEq(v === eq ? '' : v))}
       {eq === 'body weight' && <div className="small dim row" style={{ marginBottom: 10, gap: 5 }}><Icon name="info" style={{ fontSize: 13 }} />{t('Bodyweight exercises log reps only — add a weight below if you use a belt.')}</div>}
 
-      {/* These drive the body map directly, which is the whole reason to edit them: a movement
-          the catalogue files under the wrong muscle shades the wrong part of your week. */}
-      <h4 className="sec">{t('Main muscle')}</h4>
-      {chips(MUSCLES, tg, v => setTg(v === tg ? '' : v), m => t(MUSCLE_NAME[m]))}
+      {/* A stretch is logged like anything else — sets, holds, even an assisted load — but it
+          is not training a muscle, so it stays out of every muscle map. The pickers go with it:
+          there is nothing left for them to feed. */}
+      <Row icon="stretch" iconTint="var(--teal)" title={t('It’s a stretch')}
+        subtitle={t('Still logged, but it won’t count toward the muscles you trained.')}>
+        <Switch checked={stretch} onChange={setStretch} />
+      </Row>
+      <div style={{ height: 12 }} />
 
-      <h4 className="sec">{t('Also works')}</h4>
-      {chips(MUSCLES.filter(m => m !== tg), sm, toggleSm, m => t(MUSCLE_NAME[m]))}
+      {!stretch && <>
+        {/* These drive the body map directly, which is the whole reason to edit them: a movement
+            the catalogue files under the wrong muscle shades the wrong part of your week. */}
+        <h4 className="sec">{t('Main muscle')}</h4>
+        {chips(MUSCLES, tg, v => setTg(v === tg ? '' : v), m => t(MUSCLE_NAME[m]))}
+
+        <h4 className="sec">{t('Also works')}</h4>
+        {chips(MUSCLES.filter(m => m !== tg), sm, toggleSm, m => t(MUSCLE_NAME[m]))}
+      </>}
 
       <Stepper label={t('Default weight ({0})', st.unit)} value={w} step={2.5} onChange={v => setW(Math.max(0, v || 0))} />
       <div className="small dim" style={{ margin: '6px 0 12px' }}>{t('What a new plan starts this exercise at. Leave at 0 to decide per plan.')}</div>

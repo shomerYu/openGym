@@ -1,6 +1,6 @@
 // Pure helpers over the state object S (ported 1:1 from the vanilla app).
 import { todayISO, isoOf, weekKey, fmtNum } from './format.js'
-import { isCardio, isBodyweightEq, EXIDX } from './exercises.js'
+import { isCardio, isBodyweightEq, isStretch, EXIDX } from './exercises.js'
 import { t } from './i18n.js'
 
 // How an exercise is logged (issue #16). This used to be derived from the body part alone,
@@ -14,7 +14,10 @@ import { t } from './i18n.js'
 export function modeOf(cfg) {
   const m = cfg && cfg.mode
   if (m === 'reps' || m === 'time' || m === 'cardio') return m
-  return isCardio(cfg && cfg.id) ? 'cardio' : 'reps'
+  if (isCardio(cfg && cfg.id)) return 'cardio'
+  // A stretch is held, not repeated, so it starts as a timed set. Only a default — an explicit
+  // mode above still wins, for anyone who counts a stretch in reps.
+  return isStretch(cfg && cfg.id) ? 'time' : 'reps'
 }
 export const isTimed = cfg => modeOf(cfg) === 'time'
 
