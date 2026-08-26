@@ -1,7 +1,12 @@
-import { EXDB } from './exercises-data.js'
+import { EXDB as CATALOGUE } from './exercises-data.js'
+import { EXTRA } from './exercises-extra.js'
 import { t } from './i18n.js'
 
-export { EXDB }
+// The upstream catalogue plus our own additions, in one list. Concatenated rather than merged
+// into exercises-data.js so a dataset refresh cannot drop them — see exercises-extra.js.
+export const EXDB = [...CATALOGUE, ...EXTRA]
+// The animated subset, for the "N exercises with animations" line: our additions have no media.
+export const ANIMATED = CATALOGUE.length
 export const EXIDX = {}
 EXDB.forEach(e => { EXIDX[e.id] = e })
 export const BODYPARTS = [...new Set(EXDB.map(e => e.bp))].sort()
