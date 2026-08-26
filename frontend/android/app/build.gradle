@@ -1,5 +1,14 @@
 apply plugin: 'com.android.application'
 
+// CI passes -PversionCodeOverride=<run number + offset> so each build outranks the last and
+// Android accepts it as an update; a local build with no property set keeps the number below.
+// Android refuses a lower versionCode outright.
+//
+// Resolved here rather than inline in defaultConfig: `versionCode (expr).toInteger()` is
+// parsed by Groovy as `versionCode(expr).toInteger()` — the chain lands on the setter's null
+// return value, not on the expression — which fails the build with a bare "Value is null".
+def resolvedVersionCode = (project.findProperty('versionCodeOverride') ?: '5').toString().toInteger()
+
 android {
     namespace "ch.duartesantos.opengym"
     compileSdk rootProject.ext.compileSdkVersion
@@ -7,10 +16,7 @@ android {
         applicationId "ch.duartesantos.opengym"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        // CI passes -PversionCodeOverride=<run number + offset> so each build outranks the
-        // last and Android accepts it as an update; a local build with no property set keeps
-        // the number checked in here. Android refuses a lower versionCode outright.
-        versionCode (project.findProperty('versionCodeOverride') ?: '5').toString().toInteger()
+        versionCode resolvedVersionCode
         versionName "1.2.4"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
