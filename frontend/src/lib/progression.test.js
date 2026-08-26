@@ -5,8 +5,11 @@ import {
 } from './progression.js'
 import { EXDB } from './exercises.js'
 
-const LIFT = EXDB.find(e => e.bp !== 'cardio' && !['upper legs', 'lower legs', 'back', 'hips', 'glutes'].includes(e.bp)).id
-const HEAVY = EXDB.find(e => e.bp === 'upper legs').id
+// Both fixtures mean "a loaded lift", so they say so. Picking the first match on body part
+// alone once landed HEAVY on "all fours squad stretch" — the first upper-legs entry in
+// catalogue order — which progresses as a timed hold and has no weight to increment.
+const LIFT = EXDB.find(e => e.bp !== 'cardio' && !e.stretch && !['upper legs', 'lower legs', 'back', 'hips', 'glutes'].includes(e.bp)).id
+const HEAVY = EXDB.find(e => e.bp === 'upper legs' && !e.stretch && e.eq === 'barbell').id
 const CARDIO = EXDB.find(e => e.bp === 'cardio').id
 
 // Build a state whose history is a list of sessions given as [weight, ...repsPerSet].

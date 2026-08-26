@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
-import { exOr } from '../lib/exercises.js'
+import { exOr, isStretch } from '../lib/exercises.js'
 import { effectiveRoutine, lastEntryFor, bestWeightFor, buildSets, setsDoneActive, supersetUnits, unitOf, setLabel, activeLine, modeOf, isBw, isPerSide, sideReps, repStep, EFFORT, effortOf, stepEffort, capEffort } from '../lib/history.js'
 import { fmtNum, fmtDate, todayISO, exCount, DAYN } from '../lib/format.js'
 import { beep, vibrate } from '../lib/sound.js'
@@ -119,6 +119,7 @@ function ExerciseBlock({ entryIdx, compact, rowsOnly, onToggle, onField, onAddSe
       </div>
       <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
         {cardio && <span className="tag acc"><Icon name="figureRun" />{t('Cardio')}</span>}
+        {isStretch(ex) && <span className="tag acc"><Icon name="stretch" />{t('Stretch')}</span>}
         {/* You log the total; this is the split, so the set in front of you is unambiguous
             without the rep count having to mean two different things (issue #31). */}
         {!cardio && !timed && isPerSide(cfg) && <span className="tag acc nocap"><Icon name="shuffle" />{t('{0} per side', fmtNum(sideReps(entry.sets.find(s => !s.done)?.r ?? entry.sets[0]?.r)))}</span>}

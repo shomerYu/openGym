@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { EXTRA } from './exercises-extra.js'
+import { EXTRA, STRETCH_IDS } from './exercises-extra.js'
 import { EXDB as CATALOGUE } from './exercises-data.js'
-import { canonMuscle } from './muscles.js'
+import { canonMuscle, musclesOf } from './muscles.js'
 
 describe('added exercises', () => {
   it('cannot collide with an upstream id, however the catalogue grows', () => {
@@ -48,5 +48,36 @@ describe('added exercises', () => {
       expect(bps.has(e.bp), e.n + ' bp=' + e.bp).toBe(true)
       expect(eqs.has(e.eq), e.n + ' eq=' + e.eq).toBe(true)
     })
+  })
+})
+
+describe('catalogue stretches', () => {
+  const byId = Object.fromEntries(CATALOGUE.map(e => [e.id, e]))
+
+  it('flags an id that actually exists', () => {
+    STRETCH_IDS.forEach(id => expect(byId[id], id).toBeTruthy())
+  })
+
+  it('excludes the two entries whose names only look like stretches', () => {
+    // "single leg bridge with outstretched leg" is a glute bridge — "outstretched" matches a
+    // naive /stretch/ search — and "weighted stretch lunge" is a loaded lunge. Flagging either
+    // would stop a real strength exercise counting towards the muscles it trains.
+    expect(STRETCH_IDS.has('3645')).toBe(false)
+    expect(STRETCH_IDS.has('3642')).toBe(false)
+  })
+
+  it('includes a stretch that never says the word', () => {
+    expect(STRETCH_IDS.has('1494')).toBe(true)   // butterfly yoga pose
+  })
+
+  it('covers every remaining name that says "stretch"', () => {
+    const named = CATALOGUE.filter(e => /stretch/i.test(e.n) && !['3645', '3642'].includes(e.id))
+    named.forEach(e => expect(STRETCH_IDS.has(e.id), e.n).toBe(true))
+  })
+
+  it('makes a flagged exercise train nothing, keeping its own muscle fields intact', () => {
+    const hamstring = byId['1511']              // "hamstring stretch"
+    expect(hamstring.tg).toBe('hamstrings')     // untouched in the upstream data…
+    expect(musclesOf({ ...hamstring, stretch: true })).toEqual({})   // …but it counts for nothing
   })
 })

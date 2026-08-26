@@ -6,8 +6,9 @@ import { EXDB } from './exercises.js'
 const CARDIO = EXDB.find(e => e.bp === 'cardio').id
 // A *loaded* lift: the catalogue's first non-cardio entry is a sit-up, which since issue #32
 // defaults to bodyweight and would quietly send every label test down the other path.
-const LIFT = EXDB.find(e => e.bp !== 'cardio' && e.eq !== 'body weight').id
-const BW = EXDB.find(e => e.eq === 'body weight').id
+const LIFT = EXDB.find(e => e.bp !== 'cardio' && !e.stretch && e.eq !== 'body weight').id
+// A stretch defaults to a timed hold, which would quietly change what these rep-set tests mean.
+const BW = EXDB.find(e => e.eq === 'body weight' && !e.stretch).id
 
 describe('modeOf', () => {
   it('falls back to the body part when a plan has no mode — every existing plan keeps working', () => {

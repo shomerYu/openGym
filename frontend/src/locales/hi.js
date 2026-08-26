@@ -346,6 +346,7 @@ export default {
   'Bodyweight exercises log reps only — add a weight below if you use a belt.': 'बॉडीवेट एक्सरसाइज़ केवल दोहराव दर्ज करती हैं — अगर आप बेल्ट इस्तेमाल करते हैं तो नीचे वज़न जोड़ें।',
   'Main muscle': 'मुख्य मांसपेशी',
   'It’s a stretch': 'यह एक स्ट्रेच है',
+  'Stretch': 'स्ट्रेच',
   'Still logged, but it won’t count toward the muscles you trained.': 'दर्ज फिर भी होगा, पर प्रशिक्षित मांसपेशियों में नहीं गिना जाएगा।',
   'Also works': 'यह भी काम करती है',
   'Default weight ({0})': 'डिफ़ॉल्ट वज़न ({0})',

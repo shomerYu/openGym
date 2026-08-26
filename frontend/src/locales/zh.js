@@ -346,6 +346,7 @@ export default {
   'Bodyweight exercises log reps only — add a weight below if you use a belt.': '自重动作只记录次数——如果你用负重腰带，请在下面添加重量。',
   'Main muscle': '主要肌群',
   'It’s a stretch': '这是拉伸',
+  'Stretch': '拉伸',
   'Still logged, but it won’t count toward the muscles you trained.': '仍会记录，但不计入你锻炼的肌群。',
   'Also works': '同时锻炼',
   'Default weight ({0})': '默认重量（{0}）',

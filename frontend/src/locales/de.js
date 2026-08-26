@@ -364,6 +364,7 @@ export default {
   'Bodyweight exercises log reps only — add a weight below if you use a belt.': 'Körpergewichtsübungen erfassen nur Wiederholungen — trag unten ein Gewicht ein, wenn du einen Gürtel nutzt.',
   'Main muscle': 'Hauptmuskel',
   'It’s a stretch': 'Das ist eine Dehnung',
+  'Stretch': 'Dehnung',
   'Still logged, but it won’t count toward the muscles you trained.': 'Wird weiterhin erfasst, zählt aber nicht zu den trainierten Muskeln.',
   'Also works': 'Trainiert außerdem',
   'Default weight ({0})': 'Standardgewicht ({0})',

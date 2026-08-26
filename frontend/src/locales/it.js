@@ -346,6 +346,7 @@ export default {
   'Bodyweight exercises log reps only — add a weight below if you use a belt.': 'Gli esercizi a corpo libero registrano solo le ripetizioni — aggiungi un peso sotto se usi una cintura.',
   'Main muscle': 'Muscolo principale',
   'It’s a stretch': 'È un allungamento',
+  'Stretch': 'Allungamento',
   'Still logged, but it won’t count toward the muscles you trained.': 'Viene comunque registrato, ma non conta per i muscoli allenati.',
   'Also works': 'Lavora anche',
   'Default weight ({0})': 'Peso predefinito ({0})',

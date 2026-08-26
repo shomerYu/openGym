@@ -346,6 +346,7 @@ export default {
   'Bodyweight exercises log reps only — add a weight below if you use a belt.': 'Ćwiczenia z masą ciała zapisują tylko powtórzenia — dodaj ciężar poniżej, jeśli używasz pasa.',
   'Main muscle': 'Główny mięsień',
   'It’s a stretch': 'To rozciąganie',
+  'Stretch': 'Rozciąganie',
   'Still logged, but it won’t count toward the muscles you trained.': 'Nadal zapisywane, ale nie liczy się do trenowanych mięśni.',
   'Also works': 'Angażuje też',
   'Default weight ({0})': 'Domyślny ciężar ({0})',

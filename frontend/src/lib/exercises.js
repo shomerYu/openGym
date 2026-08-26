@@ -1,10 +1,15 @@
 import { EXDB as CATALOGUE } from './exercises-data.js'
-import { EXTRA } from './exercises-extra.js'
+import { EXTRA, STRETCH_IDS } from './exercises-extra.js'
 import { t } from './i18n.js'
 
 // The upstream catalogue plus our own additions, in one list. Concatenated rather than merged
-// into exercises-data.js so a dataset refresh cannot drop them — see exercises-extra.js.
-export const EXDB = [...CATALOGUE, ...EXTRA]
+// into exercises-data.js so a dataset refresh cannot drop them — see exercises-extra.js. The
+// stretch flag is applied here for the same reason, onto copies rather than by mutating the
+// upstream objects, so that file stays exactly as generated.
+export const EXDB = [
+  ...CATALOGUE.map(e => (STRETCH_IDS.has(e.id) ? { ...e, stretch: true } : e)),
+  ...EXTRA,
+]
 // The animated subset, for the "N exercises with animations" line: our additions have no media.
 export const ANIMATED = CATALOGUE.length
 export const EXIDX = {}
