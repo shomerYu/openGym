@@ -1,5 +1,91 @@
 # Changelog
 
+## v1.2.5 — 2026-09-04
+
+The whole session on one page, an end-of-workout sheet that can correct a session in both
+directions — mark what happened, delete what didn't — and exercises you can adapt to your gym
+instead of re-entering from scratch. Plus: stretches stop counting as training, and the app
+finally says which build it is.
+
+### The whole workout on one page
+
+- 📋 **A List view for an active session**, next to the existing one-exercise-at-a-time Focus
+  layout — a segmented control next to the exercise counter, also settable in Settings →
+  *During a workout*, and remembered across exercises and future sessions.
+- **One line per exercise**: thumbnail, name, "4 × 10 · 70 kg" and its sets-done count, so a
+  five-exercise session fits one screen instead of running to 2,450 px of set tables. A value
+  every set shares prints once; one that varies prints as a range ("4 × 7–8"), so a ramp or a
+  drop set stays visible. Supersets keep their shared accented card.
+- **Still a working view, not a preview.** Tapping a row opens its set table in place — the same
+  rows, with weight, reps and effort editable and every set checkable where it sits.
+- Two ordering bugs had to go for that to be correct: rest, superset grouping and completion were
+  decided from the exercise you had paged to rather than the set you actually tapped, and "that's
+  the whole workout" fired when the last *unit* finished rather than when every set had.
+
+### Finishing a session, in both directions
+
+- 🏁 **A finish sheet** in place of the old bare confirm. "Mark all exercises done" checks off
+  every remaining set at the numbers already in the rows, so training through the list without
+  tapping each checkbox logs a real session instead of an empty one; the duration is prefilled
+  with the elapsed time and editable, so the clock that kept running on the drive home does not
+  become part of your workout.
+- 🗑️ **Delete sets before the session is saved.** A review list of the whole workout, with a
+  delete on every set and every exercise, plus "delete the N unchecked sets" for a session that
+  ended early. A set that did not happen — a warm-up logged twice, an exercise abandoned two sets
+  in — now has a way out, where leaving it unchecked only parked it in history reading as
+  skipped. Deletions are staged and undoable until you confirm, and "Keep training" hands the
+  session back exactly as it was.
+
+### Home says what you trained
+
+- ✅ **Today's row reads from history, not just the plan.** Train a routine picked off the list,
+  or a freestyle session, on a day the plan leaves empty, and both Home and the start screen used
+  to keep announcing a rest day with the finished workout already logged. Home now shows what you
+  trained with a *Trained* tag and opens that workout when tapped; the start screen reads "already
+  trained today", and today's planned routine is marked "done today" once it is the one you did.
+  A second session is still one tap away — the plan card stays put.
+
+### Your own exercises
+
+- 🧬 **Duplicate & edit any exercise.** The custom editor opens pre-filled from it, so the machine
+  your gym has instead of the barbell, or a name you actually use, no longer means re-entering
+  everything and losing the animation and instructions. Name, body part, equipment, main and
+  secondary muscles, a default weight, and whether the copy keeps the animation. Duplicating
+  rather than editing in place leaves the original intact for other plans and for history already
+  logged against it.
+- ➕ **Five movements the catalogue was missing** — bird dog, bodyweight squat, bodyweight good
+  morning, single-leg hip thrust and a plain side plank. They live in their own file, so a
+  refresh of the upstream catalogue cannot quietly delete them.
+- **Library search is ranked.** Exact name matches first, then prefixes, then the rest — searching
+  "side plank" no longer puts "bodyweight incline side plank" above it.
+
+### Stretches are stretches, not volume
+
+- 🧘 **56 catalogue stretches are flagged as such**, and an "It's a stretch" switch marks any
+  custom or duplicated exercise. A stretch is still logged — it happened, it took time — but it
+  contributes nothing to any muscle map, so four sets of hamstring stretching stop reading as
+  hamstring volume. It defaults to a timed hold, since that is how one is performed, and the
+  estimated-1RM chart no longer offers a one-rep max for it.
+- Worth stating: **body maps for already-logged sessions change.** A past workout containing
+  catalogue stretches now shades less than it did — it was overcounting, but the correction is
+  retroactive.
+
+### Getting the app
+
+- 📦 **Every signed build is published as a release**, so the newest APK is a plain file at a
+  permanent, login-free URL —
+  `https://github.com/<repo>/releases/latest/download/openGym.apk` — which a phone browser can
+  fetch directly and which update-watchers like Obtainium can poll. Debug builds stay artifacts:
+  one cannot install over a real one, and a link implying it can would be worse than no link.
+- ℹ️ **Settings ends with an About section** naming the version and the build it is actually
+  running (a local build reads "build dev"). An update that did not take and a feature that was
+  never built used to look identical from inside the app.
+
+### Fixed
+
+- **The list header counted units, not exercises** — a session with one superset read
+  "4 exercises" while the finish button directly below it said 5.
+
 ## v1.2.4 — 2026-08-01
 
 The effort ratings you have been recording since v1.2.3 now answer questions, and bodyweight
