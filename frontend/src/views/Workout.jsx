@@ -9,7 +9,7 @@ import { beep, vibrate } from '../lib/sound.js'
 import { t } from '../lib/i18n.js'
 import { api } from '../lib/api.js'
 import Media, { Thumb } from '../components/Media.jsx'
-import { startFlow, exercisePicker, exConfigSheet, exerciseDetailSheet, topWeightSheet, finishWorkout, workoutCompleteSheet, confirmSheet } from '../sheets.jsx'
+import { startFlow, logPastWorkout, exercisePicker, exConfigSheet, exerciseDetailSheet, topWeightSheet, finishWorkout, workoutCompleteSheet, confirmSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button, Check, NumberField, Segmented } from '../components/ui.jsx'
 import { nextPrescription, applyPrescription } from '../lib/progression.js'
@@ -45,6 +45,9 @@ function StartChooser() {
         <span className="tag acc">{t('Start')}</span></div>)}</div></>}
     <div style={{ height: 14 }} />
     <Button icon="shuffle" onClick={() => startFlow(null)}>{t('Freestyle workout (pick as you go)')}</Button>
+    <div style={{ height: 10 }} />
+    {/* Trained yesterday and never opened the app? Write it down now — same screen, dated back. */}
+    <Button icon="history" onClick={() => logPastWorkout()}>{t('Log a past workout')}</Button>
     {!S.routines.length && <><div style={{ height: 10 }} /><Button variant="primary" onClick={() => nav('/plan')}>{t('Build a plan first')}</Button></>}
   </div>
 }
@@ -169,6 +172,9 @@ function ActiveWorkout() {
   const update = useStore(s => s.update)
   const { startRest, stopRest } = useUI()
   const A = S.active
+  // Writing down a session that already happened: the rows are the same, but a clock, a rest
+  // timer and a "training now" heartbeat all describe a session in progress, which this is not.
+  const logging = !!A.logging
   const units = supersetUnits(A.entries)
   const cur = Math.min(A.cur, Math.max(0, A.entries.length - 1))
   const unit = A.entries.length ? unitOf(units, cur) : []
@@ -225,7 +231,8 @@ function ActiveWorkout() {
         beep(S.sound, 1040, 0.12); vibrate(30)
         const isLastExInUnit = idx === u[u.length - 1]
         const unitDone = u.every(ui => (ui === idx ? e : A.entries[ui]).sets.every(x => x.done))
-        if (isLastExInUnit && !unitDone) startRest(S.restSec)
+        // Nothing to rest for in a session you already did.
+        if (isLastExInUnit && !unitDone && !logging) startRest(S.restSec)
         else if (unitDone) stopRest()
         // "The whole workout is done" is every set in every exercise, not just the last unit's:
         // out of order in the list view, finishing the last exercise first proves nothing.
@@ -300,7 +307,9 @@ function ActiveWorkout() {
   // Live-presence heartbeat so the admin dashboard can show who's training now. Signed-in only —
   // guests have no server session. Reads fresh state each tick so progress stays current.
   useEffect(() => {
-    if (!useStore.getState().user) return
+    // Signed-in only, and never for a session being written down after the fact — the
+    // dashboard would show someone training who is sitting on the sofa with their phone.
+    if (!useStore.getState().user || logging) return
     let stopped = false
     const ping = active => {
       const A2 = useStore.getState().S.active
@@ -322,12 +331,13 @@ function ActiveWorkout() {
       try { navigator.sendBeacon?.('/api/activity', new Blob([JSON.stringify({ active: false })], { type: 'application/json' })) } catch { /* */ }
       api('/api/activity', { method: 'POST', body: JSON.stringify({ active: false }) }).catch(() => {})
     }
-  }, [])
+  }, [logging])
 
   return <div className="narrow">
     <div className="hdr">
       <button className="iconbtn" aria-label={t('Discard')} onClick={() => confirmSheet({ title: t('Discard workout?'), message: t('The sets you logged in this session will be lost.'), confirmText: t('Discard'), danger: true, onConfirm: () => { update(s => { s.active = null }); stopRest(); nav('/home') } })}><Icon name="xmark" /></button>
-      <div style={{ textAlign: 'center' }}><div style={{ fontWeight: 600 }}>{A.name}</div><div className="sub"><Elapsed start={A.start} /> · {t('{0} sets', done + '/' + total)}</div></div>
+      <div style={{ textAlign: 'center' }}><div style={{ fontWeight: 600 }}>{A.name}</div>
+        <div className="sub">{logging ? <span className="accent">{t('logging {0}', fmtDate(A.d, true))}</span> : <Elapsed start={A.start} />} · {t('{0} sets', done + '/' + total)}</div></div>
       <button className="iconbtn" style={{ color: 'var(--acc)' }} aria-label={t('Finish')} onClick={finishWorkout}><Icon name="check" /></button>
     </div>
     <div className="wprog"><i style={{ width: (total ? done / total * 100 : 0) + '%' }} /></div>
@@ -365,7 +375,7 @@ function ActiveWorkout() {
       const exDone = A.entries.filter(e => e.sets.length && e.sets.every(s => s.done)).length
       const allDone = A.entries.length > 0 && exDone === A.entries.length
       return <button className={allDone ? 'btn primary' : 'btn ghost dim'} onClick={finishWorkout}>
-        {allDone ? t('Finish workout') : t('Finish workout · {0} exercises done', exDone + '/' + A.entries.length)}
+        {logging ? t('Save this workout') : allDone ? t('Finish workout') : t('Finish workout · {0} exercises done', exDone + '/' + A.entries.length)}
       </button>
     })()}
     <div style={{ height: 40 }} />

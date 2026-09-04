@@ -275,6 +275,30 @@ export function dropSets(entries, drop) {
 // only this says what happened on it — which is why a session trained off-plan (freestyle, or
 // a routine picked from the list on a rest day) used to leave Home and the start screen still
 // announcing a rest day after it was finished and saved.
+// History is kept in the order it happened — every reader assumes it, from lastEntryFor
+// walking backwards for "what did I lift last time" to the History screen simply reversing
+// the array. A session logged after the fact (yesterday's, last week's) therefore cannot be
+// appended: it has to land where its date says it belongs, exactly as the CSV importer sorts
+// what it merges. Ties keep the order they arrived in, so two sessions logged for one day
+// stay in the order they were entered.
+export function insertWorkout(workouts, w) {
+  const list = workouts || []
+  const after = x => (x.d !== w.d ? x.d <= w.d : (x.start || 0) <= (w.start || 0))
+  let i = list.length
+  while (i > 0 && !after(list[i - 1])) i--
+  list.splice(i, 0, w)
+  return list
+}
+// An exercise remembered after the workout was saved. Volume is derived from the sets, so it
+// is recomputed rather than adjusted; `prs` is deliberately left alone — a personal record is
+// a claim about the day it was set, and a set typed in a week later cannot retroactively
+// become one without rewriting every workout after it.
+export function withEntry(w, entry) {
+  const next = { ...w, entries: [...w.entries, entry] }
+  next.vol = workoutVolume(next)
+  return next
+}
+
 export const workoutsOn = (S, iso) => ((S && S.workouts) || []).filter(w => w.d === iso)
 
 export const lastBW = S => (S.bodyweight.length ? S.bodyweight[S.bodyweight.length - 1] : null)

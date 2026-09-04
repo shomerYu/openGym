@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { modeOf, isTimed, fmtSec, setLabel, defaultConfig, buildSets, exLine, activeLine, workoutVolume, effortOf, stepEffort, capEffort, isBw, isPerSide, sideReps, repStep, dropKey, dropSets, workoutsOn } from './history.js'
+import { modeOf, isTimed, fmtSec, setLabel, defaultConfig, buildSets, exLine, activeLine, workoutVolume, effortOf, stepEffort, capEffort, isBw, isPerSide, sideReps, repStep, dropKey, dropSets, workoutsOn, insertWorkout, withEntry, lastEntryFor } from './history.js'
 import { EXDB } from './exercises.js'
 
 // Real ids out of the shipped catalogue, so the body-part fallback is exercised for real.
@@ -547,5 +547,86 @@ describe('workoutsOn', () => {
     // no routineId, which is exactly the case that used to read as "Rest day".
     expect(workoutsOn(S, '2026-09-04')).toHaveLength(2)
     expect(workoutsOn(S, '2026-09-04')[0].routineId).toBeNull()
+  })
+})
+
+// Logging a session after the fact. History is stored in the order it happened, so a
+// backdated workout has to land by date rather than at the end.
+describe('insertWorkout', () => {
+  const w = (id, d, start = 0) => ({ id, d, start, entries: [] })
+  const ids = list => list.map(x => x.id)
+
+  it('appends a session logged for today', () => {
+    const list = [w('a', '2026-09-01'), w('b', '2026-09-03')]
+    expect(ids(insertWorkout(list, w('c', '2026-09-04')))).toEqual(['a', 'b', 'c'])
+  })
+
+  it('puts a backdated session where its date belongs, not at the end', () => {
+    const list = [w('a', '2026-09-01'), w('b', '2026-09-03')]
+    expect(ids(insertWorkout(list, w('x', '2026-09-02')))).toEqual(['a', 'x', 'b'])
+  })
+
+  it('puts one older than everything first', () => {
+    const list = [w('a', '2026-09-01'), w('b', '2026-09-03')]
+    expect(ids(insertWorkout(list, w('x', '2026-08-30')))).toEqual(['x', 'a', 'b'])
+  })
+
+  it('orders two sessions on the same day by their start time', () => {
+    const list = [w('morning', '2026-09-02', 1000), w('c', '2026-09-03')]
+    expect(ids(insertWorkout(list, w('evening', '2026-09-02', 5000)))).toEqual(['morning', 'evening', 'c'])
+    const list2 = [w('evening', '2026-09-02', 5000)]
+    expect(ids(insertWorkout(list2, w('morning', '2026-09-02', 1000)))).toEqual(['morning', 'evening'])
+  })
+
+  it('keeps the order two sessions arrived in when they claim the same moment', () => {
+    const list = [w('first', '2026-09-02', 1000)]
+    expect(ids(insertWorkout(list, w('second', '2026-09-02', 1000)))).toEqual(['first', 'second'])
+  })
+
+  it('handles an empty history', () => {
+    expect(ids(insertWorkout([], w('a', '2026-09-02')))).toEqual(['a'])
+  })
+
+  // lastEntryFor walks backwards for "what did I lift last time"; an out-of-order insert would
+  // make a session logged for last week answer that question.
+  it('leaves lastEntryFor answering with the most recent session, not the last logged', () => {
+    const set = kg => ({ w: kg, r: 5, done: true })
+    const S = { workouts: [
+      { id: 'a', d: '2026-09-01', start: 1, entries: [{ id: 'E', sets: [set(100)] }] },
+      { id: 'b', d: '2026-09-03', start: 3, entries: [{ id: 'E', sets: [set(110)] }] }
+    ] }
+    insertWorkout(S.workouts, { id: 'x', d: '2026-09-02', start: 2, entries: [{ id: 'E', sets: [set(105)] }] })
+    expect(lastEntryFor(S, 'E').d).toBe('2026-09-03')
+    expect(lastEntryFor(S, 'E').sets[0].w).toBe(110)
+  })
+})
+
+describe('withEntry', () => {
+  const base = () => ({
+    id: 'w1', d: '2026-09-02', vol: 400, prs: ['A'],
+    entries: [{ id: 'A', target: { mode: 'reps' }, sets: [{ w: 40, r: 10, done: true }] }]
+  })
+  const added = { id: 'B', target: { mode: 'reps' }, sets: [{ w: 50, r: 10, done: true }, { w: 50, r: 10, done: true }] }
+
+  it('appends the exercise and recomputes the volume from every done set', () => {
+    const out = withEntry(base(), added)
+    expect(out.entries.map(e => e.id)).toEqual(['A', 'B'])
+    expect(out.vol).toBe(400 + 1000)
+  })
+
+  it('leaves the workout it was given alone', () => {
+    const w = base()
+    withEntry(w, added)
+    expect(w.entries).toHaveLength(1)
+    expect(w.vol).toBe(400)
+  })
+
+  it('does not invent a PR for a set typed in after the fact', () => {
+    expect(withEntry(base(), added).prs).toEqual(['A'])
+  })
+
+  it('counts nothing towards volume for an unchecked set', () => {
+    const out = withEntry(base(), { id: 'C', target: {}, sets: [{ w: 50, r: 10, done: false }] })
+    expect(out.vol).toBe(400)
   })
 })

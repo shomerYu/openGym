@@ -78,7 +78,7 @@ export default function Home() {
           </span>
           <div style={{ minWidth: 0 }}>
             <div className="lbl2">{t('Today')}{trained && doneToday.length > 1 ? ' · ' + t('{0} workouts', doneToday.length) : ''}</div>
-            <div className="ttl">{S.active ? t('{0} — in progress', S.active.name) : trained ? lastToday.name : routine ? routine.name : t('Rest day')}{!trained && todayOvr && routine ? ' · ' + t('rescheduled') : ''}</div>
+            <div className="ttl">{S.active ? (S.active.logging ? t('{0} — logging {1}', S.active.name, fmtDate(S.active.d)) : t('{0} — in progress', S.active.name)) : trained ? lastToday.name : routine ? routine.name : t('Rest day')}{!trained && todayOvr && routine ? ' · ' + t('rescheduled') : ''}</div>
           </div>
         </div>
         {S.active ? <span className="tag" style={{ color: 'var(--orange)', background: 'color-mix(in srgb,var(--orange) 16%,transparent)' }}>{t('Resume')}</span>

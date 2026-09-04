@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useStore } from './store/useStore.js'
 import { useUI } from './store/useUI.js'
 import { EXDB, EXIDX, BODYPARTS, exOr, isCardio, isStretch, isBodyweightEq, allExercises, equipmentOf } from './lib/exercises.js'
-import { fmtDate, fmtNum, fmtVol, fmtDur, durPart, todayISO, uid, exCount, DAYN, MONTHS_LONG, ACCENTS } from './lib/format.js'
-import { lastEntryFor, bestWeightFor, buildSets, effectiveRoutineId, workoutVolume, setsDone, setsDoneActive, lastBW, supersetUnits, unitOf, setLabel, defaultConfig, cleanupSg, modeOf, effortOf, isBw, isPerSide, sideReps, dropKey, dropSets } from './lib/history.js'
+import { fmtDate, fmtNum, fmtVol, fmtDur, durPart, todayISO, isoOf, uid, exCount, DAYN, MONTHS_LONG, ACCENTS } from './lib/format.js'
+import { lastEntryFor, bestWeightFor, buildSets, effectiveRoutine, effectiveRoutineId, workoutVolume, setsDone, setsDoneActive, lastBW, supersetUnits, unitOf, setLabel, defaultConfig, cleanupSg, modeOf, effortOf, isBw, isPerSide, sideReps, dropKey, dropSets, workoutsOn, insertWorkout, withEntry } from './lib/history.js'
 import { beep, vibrate } from './lib/sound.js'
 import { t, instrFor, getLang, INSTR_LANGS } from './lib/i18n.js'
 import { nav } from './lib/nav.js'
@@ -830,6 +830,12 @@ function DayOverride({ iso, close }) {
       <div className="item" onClick={() => set('rest')}><span className="lrow-i" style={{ background: 'var(--surface-3)' }}><Icon name="moon" /></span><div className="grow"><div className="tt">{t('Rest / skip this day')}</div></div>{effId === null && <Icon name="check" className="accent" />}</div>
       {hasOvr && <div className="item" onClick={() => set('')}><span className="lrow-i" style={{ background: 'var(--surface-3)' }}><Icon name="reset" /></span><div className="grow"><div className="tt">{t('Back to weekly plan')}</div></div></div>}
     </div>
+    {/* Planning a day that has already been is beside the point — what you actually want on a
+        past day is to write down what you did on it. */}
+    {iso < todayISO() && <>
+      <div style={{ height: 12 }} />
+      <Button icon="history" onClick={() => { close(); logPastWorkout(iso) }}>{t('Log a workout for this day')}</Button>
+    </>}
   </>
 }
 export const dayOverrideSheet = iso => ui().openSheet(close => <DayOverride iso={iso} close={close} />)
@@ -851,8 +857,30 @@ function DayAssign({ day, close }) {
 export const dayAssignSheet = day => ui().openSheet(close => <DayAssign day={day} close={close} />)
 
 /* ============================ workout detail ============================ */
-function WorkoutDetail({ w, close }) {
+function WorkoutDetail({ w: given, close }) {
   const st = useStore(s => s.S)
+  // Read back out of the store rather than trusting the object the caller handed over, so an
+  // exercise added below shows up in the sheet that added it. A deleted workout keeps the
+  // copy it was opened with, since the sheet is closing anyway.
+  const w = st.workouts.find(x => x.id === given.id) || given
+  // An exercise remembered afterwards — the accessory you did but never tapped in, the set
+  // you finished after hitting Finish. It is added at the numbers you configure, already
+  // checked off: this is a record of something that happened, not a set to go and do.
+  const addExercise = () => exercisePicker(ex => exConfigSheet(ex, null, cfg => {
+    const full = { ...cfg, id: ex.id }
+    const entry = { id: ex.id, target: { ...cfg }, sets: buildSets(st, full).map(x => ({ ...x, done: true })) }
+    update(s => {
+      const i = s.workouts.findIndex(x => x.id === w.id)
+      if (i < 0) return
+      s.workouts[i] = withEntry(s.workouts[i], entry)
+      // Same rule as finishing a session: your best weight is the heaviest set anywhere in
+      // history, whenever it was written down.
+      const mx = Math.max(0, ...entry.sets.map(x => x.w || 0))
+      const cur = s.exWeights[ex.id]
+      if (mx > 0 && (!cur || mx > cur.w)) s.exWeights[ex.id] = { w: mx, d: w.d }
+    })
+    toast(t('Added to {0}', fmtDate(w.d, true)))
+  }))
   return <>
     <h3>{w.name}</h3>
     <div className="muted small" style={{ marginBottom: 12 }}>{[fmtDate(w.d, true), ...durPart(w.end - w.start), fmtVol(w.vol, st.unit), ...(w.bw ? [fmtNum(w.bw) + ' ' + st.unit] : [])].join(' · ')}</div>
@@ -864,6 +892,8 @@ function WorkoutDetail({ w, close }) {
           <div className="ss">{e.sets.filter(s => s.done).map(s => setLabel(e.id, s, e.target)).join('  ·  ') || t('no sets')}</div></div>
       </div>
     })}
+    <Button icon="plus" onClick={addExercise}>{t('Add an exercise you forgot')}</Button>
+    <div style={{ height: 8 }} />
     <Button variant="danger" onClick={() => confirmSheet({ title: t('Delete workout?'), message: t('This removes it from your history for good.'), confirmText: t('Delete'), danger: true, onConfirm: () => { update(s => { s.workouts = s.workouts.filter(x => x.id !== w.id) }); close(); toast(t('Workout deleted')) } })}>{t('Delete workout')}</Button>
   </>
 }
@@ -934,22 +964,106 @@ export function WorkoutRow({ w, onClick }) {
 export function startFlow(routineId) {
   bwSheet({ required: true, onDone: bw => beginWorkout(routineId, bw) })
 }
-export function beginWorkout(routineId, bw) {
+// A session logged after the fact is dated at midday, so the duration you confirm at the end
+// cannot push `end` onto the next day and every reader that derives a date from `start` agrees
+// with `d`.
+const middayOf = iso => new Date(iso + 'T12:00:00').getTime()
+export function beginWorkout(routineId, bw, iso) {
   const st = S()
   const r = routineId ? st.routines.find(x => x.id === routineId) : null
+  // Logging a past day rather than training now: same screen, same rows, but nothing that
+  // only makes sense live — no clock, no rest timer, no "you are training" heartbeat.
+  const past = iso && iso !== todayISO() ? iso : null
   // The prescription is applied as the session is built, so you walk up to the bar with the
   // right weight already on the screen instead of being told about it afterwards. `plan` is
   // kept on the entry purely so the workout can explain the number it chose.
+  // A logged session gets none: the progression is computed from history as it stands today,
+  // which for last Tuesday is partly the future — "add 2.5 kg, last session was clean" would
+  // be reasoning from sessions that happened after the one being written down.
   const entries = (r ? r.ex : []).map(cfg => {
-    const plan = nextPrescription(st, cfg, r)
-    return { id: cfg.id, sg: cfg.sg, target: { ...cfg }, plan, sets: applyPrescription(buildSets(st, cfg), plan) }
+    const plan = past ? null : nextPrescription(st, cfg, r)
+    const sets = buildSets(st, cfg)
+    return { id: cfg.id, sg: cfg.sg, target: { ...cfg }, plan, sets: past ? sets : applyPrescription(sets, plan) }
   })
   update(s => {
-    s.active = { id: uid(), d: todayISO(), start: Date.now(), routineId, name: r ? r.name : t('Freestyle'), bw: bw || null, cur: 0, entries }
+    s.active = { id: uid(), d: past || todayISO(), start: past ? middayOf(past) : Date.now(), logging: !!past, routineId, name: r ? r.name : t('Freestyle'), bw: bw || null, cur: 0, entries }
   })
   useUI.getState().stopRest()
   nav('/workout')
 }
+/* --------------------------------------------------------------------------
+   Logging a session you already did. Two questions — which day, then which
+   routine — and then the ordinary workout screen, dated to that day. Reusing
+   the screen rather than building a second editor is the whole point: every
+   mode (reps, timed holds, cardio), supersets, effort and the per-side split
+   already work there, and a session written down on Friday should be exactly
+   the same record as one logged on the day.
+-------------------------------------------------------------------------- */
+// Two weeks back, which is as far as "I forgot to log it" realistically reaches. Anything
+// older is a date you have to look up — that is what the calendar is for, and tapping a day
+// there arrives here with the date already chosen.
+const PAST_DAYS = 14
+function PastDayPicker({ close }) {
+  const st = useStore(s => s.S)
+  const days = []
+  for (let i = 1; i <= PAST_DAYS; i++) {
+    const d = new Date(); d.setDate(d.getDate() - i)
+    days.push(isoOf(d))
+  }
+  return <>
+    <h3>{t('Log a past workout')}</h3>
+    <div className="muted small" style={{ marginBottom: 12 }}>{t('Pick the day you trained. For anything older, open the calendar and tap the day.')}</div>
+    <div className="list">
+      {days.map(iso => {
+        const done = workoutsOn(st, iso)
+        const planned = effectiveRoutine(st, iso)
+        return <div key={iso} className="item" onClick={() => { close(); pastRoutineSheet(iso) }}>
+          {/* a day that already holds a session is marked, so you can tell "not logged yet" from
+              "logged, and you are about to add a second session to it" */}
+          <span className="lrow-i" style={{ background: done.length ? 'var(--acc)' : 'var(--surface-3)' }}><Icon name={done.length ? 'check' : 'calendar'} /></span>
+          <div className="grow">
+            <div className="tt">{fmtDate(iso, true)}</div>
+            {/* what the day already holds, and what it was meant to hold — both are how you
+                recognise the day you are looking for */}
+            <div className="ss">{done.length ? done.map(w => w.name).join(' · ') : planned ? t('planned: {0}', planned.name) : t('Rest day')}</div>
+          </div>
+          <Icon name="chevronRight" className="chev" />
+        </div>
+      })}
+    </div>
+  </>
+}
+function PastRoutine({ iso, close }) {
+  const st = useStore(s => s.S)
+  // The routine that day was meant to be is the likeliest answer, so it leads the list.
+  const planned = effectiveRoutine(st, iso)
+  const others = st.routines.filter(r => r !== planned)
+  const pick = id => { close(); beginWorkout(id, null, iso) }
+  return <>
+    <h3>{fmtDate(iso, true)}</h3>
+    <div className="muted small" style={{ marginBottom: 12 }}>{t('What did you train? The sets come in at your usual numbers — correct them, then finish as normal.')}</div>
+    <div className="list">
+      {planned && <div className="item" onClick={() => pick(planned.id)}>
+        <span className="lrow-i"><Icon name={glyphOf(planned.emoji)} /></span>
+        <div className="grow"><div className="tt">{planned.name}</div><div className="ss">{exCount(planned.ex.length)}</div></div>
+        <span className="tag acc">{t('planned')}</span></div>}
+      {others.map(r => <div key={r.id} className="item" onClick={() => pick(r.id)}>
+        <span className="lrow-i"><Icon name={glyphOf(r.emoji)} /></span>
+        <div className="grow"><div className="tt">{r.name}</div><div className="ss">{exCount(r.ex.length)}</div></div></div>)}
+      <div className="item" onClick={() => pick(null)}>
+        <span className="lrow-i" style={{ background: 'var(--surface-3)' }}><Icon name="shuffle" /></span>
+        <div className="grow"><div className="tt">{t('Freestyle')}</div><div className="ss">{t('add the exercises yourself')}</div></div></div>
+    </div>
+  </>
+}
+export const pastRoutineSheet = iso => ui().openSheet(close => <PastRoutine iso={iso} close={close} />)
+// One session at a time: the active slot holds the one you are writing, live or not.
+export function logPastWorkout(iso) {
+  if (S().active) { toast(t('Finish or discard the workout you have open first')); return }
+  if (iso) pastRoutineSheet(iso)
+  else ui().openSheet(close => <PastDayPicker close={close} />)
+}
+
 function TopWeight({ entryIdx, close }) {
   const st = useStore(s => s.S)
   const A = st.active
@@ -978,7 +1092,9 @@ function TopWeight({ entryIdx, close }) {
     update(s => {
       s.active.entries[entryIdx].topW = n
       const cur = s.exWeights[entry.id]
-      s.exWeights[entry.id] = { w: Math.max(n, cur ? cur.w : 0), d: todayISO() }
+      // Dated to the session, not to now — confirming a weight while writing down last
+      // Tuesday records it against last Tuesday, as finishing the workout already does.
+      s.exWeights[entry.id] = { w: Math.max(n, cur ? cur.w : 0), d: A.d || todayISO() }
     })
     close()
     if (advance && unitDone) {
@@ -1086,7 +1202,9 @@ function FinishPrompt({ close }) {
   const A = S().active
   // Snapshotted at open: this is the moment you finished, not the moment you
   // finally tapped the button in the sheet.
-  const [min, setMin] = useState(() => Math.max(0, Math.round((Date.now() - A.start) / 60000)))
+  // Prefilled from the clock for a live session. A logged one has no clock — its start is
+  // midday on the day it happened — so it opens at an hour and you say what it really was.
+  const [min, setMin] = useState(() => (A.logging ? 60 : Math.max(0, Math.round((Date.now() - A.start) / 60000))))
   // Sets picked out for deletion, keyed by where they sit in A.entries (see dropSets). Staged,
   // not applied: the session is untouched until commit.
   const [drop, setDrop] = useState(() => new Set())
@@ -1120,7 +1238,8 @@ function FinishPrompt({ close }) {
     doFinishWorkout({ end: A.start + min * 60000 })
   }
   return <>
-    <h3 className="row" style={{ gap: 8 }}><Icon name="flag" style={{ color: 'var(--acc)' }} />{t('Finish workout')}</h3>
+    <h3 className="row" style={{ gap: 8 }}><Icon name="flag" style={{ color: 'var(--acc)' }} />{A.logging ? t('Save this workout') : t('Finish workout')}</h3>
+    {A.logging && <div className="small accent" style={{ marginTop: -8, marginBottom: 10 }}>{t('Saved to {0}', fmtDate(A.d, true))}</div>}
     <div className="muted small" style={{ marginBottom: 14 }}>
       {left > 0 ? t(left === 1 ? '{0} set is still unchecked.' : '{0} sets are still unchecked.', left) + ' ' + t('Mark them done if you trained them, delete the ones you didn’t, then confirm how long the session took.')
         : t('Every set is checked off. Delete anything that shouldn’t be saved, then confirm how long the session took.')}
@@ -1154,7 +1273,7 @@ function FinishPrompt({ close }) {
       {removed > 0 && ' ' + t(removed === 1 ? '1 set will be deleted.' : '{0} sets will be deleted.', removed)}
     </div>
     <div style={{ height: 16 }} />
-    <Button variant="primary" icon="check" onClick={commit}>{finalDone ? t('Finish workout') : t('Finish with nothing logged')}</Button>
+    <Button variant="primary" icon="check" onClick={commit}>{!finalDone ? t('Finish with nothing logged') : A.logging ? t('Save this workout') : t('Finish workout')}</Button>
     <div style={{ height: 8 }} />
     <Button variant="ghost" className="dim" onClick={close}>{t('Keep training')}</Button>
   </>
@@ -1191,7 +1310,9 @@ function doFinishWorkout({ end } = {}) {
       const mx = Math.max(0, ...e.sets.filter(x => x.done).map(x => x.w || 0), e.topW || 0)
       if (mx > 0) { const cur = s.exWeights[e.id]; if (!cur || mx > cur.w) s.exWeights[e.id] = { w: mx, d: w.d } }
     })
-    s.workouts.push(w)
+    // Not a push: a session logged for a past day belongs where its date puts it, or every
+    // reader that walks history backwards would treat last Tuesday as the latest thing you did.
+    insertWorkout(s.workouts, w)
     s.active = null
   })
   useUI.getState().stopRest()
