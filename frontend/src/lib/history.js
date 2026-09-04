@@ -255,6 +255,22 @@ export function setsDoneActive(A) {
   if (A) A.entries.forEach(e => e.sets.forEach(s => { if (s.done) n++ }))
   return n
 }
+// A set the finish sheet dropped, addressed by where it sits: "<entry index>:<set index>".
+// A session's entries are not addressable by id — the same exercise can legitimately appear
+// twice in one workout — so the review list works in positions, and every key is read against
+// the same entries array it was made from.
+export const dropKey = (entryIdx, setIdx) => entryIdx + ':' + setIdx
+// The session minus the sets picked out for deletion. An entry left with no sets goes with
+// them: an exercise with nothing under it is not something that happened, and a finished
+// workout keeps only entries that logged something anyway.
+export function dropSets(entries, drop) {
+  const list = entries || []
+  if (!drop || !drop.size) return list
+  return list
+    .map((e, i) => ({ ...e, sets: e.sets.filter((_, k) => !drop.has(dropKey(i, k))) }))
+    .filter(e => e.sets.length)
+}
+
 export const lastBW = S => (S.bodyweight.length ? S.bodyweight[S.bodyweight.length - 1] : null)
 
 // Group consecutive items sharing a superset id (sg) into "units" of indices.

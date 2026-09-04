@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { modeOf, isTimed, fmtSec, setLabel, defaultConfig, buildSets, exLine, activeLine, workoutVolume, effortOf, stepEffort, capEffort, isBw, isPerSide, sideReps, repStep } from './history.js'
+import { modeOf, isTimed, fmtSec, setLabel, defaultConfig, buildSets, exLine, activeLine, workoutVolume, effortOf, stepEffort, capEffort, isBw, isPerSide, sideReps, repStep, dropKey, dropSets } from './history.js'
 import { EXDB } from './exercises.js'
 
 // Real ids out of the shipped catalogue, so the body-part fallback is exercised for real.
@@ -457,5 +457,60 @@ describe('activeLine', () => {
   it('falls back to the plan when the entry has no sets at all', () => {
     expect(activeLine({ id: LIFT, target: { mode: 'reps', sets: 3, reps: 10, weight: 60 }, sets: [] }, 'kg'))
       .toBe(exLine({ id: LIFT, mode: 'reps', sets: 3, reps: 10, weight: 60 }, 'kg'))
+  })
+})
+
+// Deleting sets from the finish sheet before the session is written. Positions, not ids: the
+// same exercise can appear twice in one workout, and the rows the user taps are positions.
+describe('dropSets', () => {
+  const session = () => ([
+    { id: LIFT, target: { mode: 'reps' }, sets: [{ w: 60, r: 10, done: true }, { w: 60, r: 10, done: true }, { w: 60, r: 8 }] },
+    { id: BW, target: { mode: 'reps', bodyweight: true }, sets: [{ w: 0, r: 12, done: true }] }
+  ])
+
+  it('returns the session untouched when nothing was picked', () => {
+    const e = session()
+    expect(dropSets(e, new Set())).toBe(e)
+    expect(dropSets(e, null)).toBe(e)
+  })
+
+  it('removes exactly the sets picked, leaving the rest in order', () => {
+    const out = dropSets(session(), new Set([dropKey(0, 1)]))
+    expect(out).toHaveLength(2)
+    expect(out[0].sets).toEqual([{ w: 60, r: 10, done: true }, { w: 60, r: 8 }])
+    expect(out[1].sets).toHaveLength(1)
+  })
+
+  it('drops an exercise whose last set goes — an exercise with nothing under it did not happen', () => {
+    const out = dropSets(session(), new Set([dropKey(1, 0)]))
+    expect(out).toHaveLength(1)
+    expect(out[0].id).toBe(LIFT)
+  })
+
+  it('reads every key against the original positions, not the shrinking ones', () => {
+    // Both of entry 0's first two sets go at once: keys are resolved against the array they
+    // were made from, so removing 0:0 must not shift 0:1 out from under the second key.
+    const out = dropSets(session(), new Set([dropKey(0, 0), dropKey(0, 1)]))
+    expect(out[0].sets).toEqual([{ w: 60, r: 8 }])
+  })
+
+  it('can empty the session entirely', () => {
+    const keys = new Set(['0:0', '0:1', '0:2', '1:0'])
+    expect(dropSets(session(), keys)).toEqual([])
+  })
+
+  it('leaves the entries it was given alone — the sheet stages deletions, it does not apply them', () => {
+    const e = session()
+    dropSets(e, new Set([dropKey(0, 0)]))
+    expect(e[0].sets).toHaveLength(3)
+  })
+
+  it('keeps everything else about an entry — target, plan and the weight already confirmed', () => {
+    const e = session()
+    e[0].plan = { kind: 'up' }; e[0].topW = 62.5
+    const out = dropSets(e, new Set([dropKey(0, 2)]))
+    expect(out[0].target).toEqual({ mode: 'reps' })
+    expect(out[0].plan).toEqual({ kind: 'up' })
+    expect(out[0].topW).toBe(62.5)
   })
 })

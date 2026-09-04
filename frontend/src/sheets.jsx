@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from './store/useStore.js'
 import { useUI } from './store/useUI.js'
-import { EXDB, EXIDX, BODYPARTS, isCardio, isStretch, isBodyweightEq, allExercises, equipmentOf } from './lib/exercises.js'
+import { EXDB, EXIDX, BODYPARTS, exOr, isCardio, isStretch, isBodyweightEq, allExercises, equipmentOf } from './lib/exercises.js'
 import { fmtDate, fmtNum, fmtVol, fmtDur, durPart, todayISO, uid, exCount, DAYN, MONTHS_LONG, ACCENTS } from './lib/format.js'
-import { lastEntryFor, bestWeightFor, buildSets, effectiveRoutineId, workoutVolume, setsDone, setsDoneActive, lastBW, supersetUnits, unitOf, setLabel, defaultConfig, cleanupSg, modeOf, effortOf, isBw, isPerSide, sideReps } from './lib/history.js'
+import { lastEntryFor, bestWeightFor, buildSets, effectiveRoutineId, workoutVolume, setsDone, setsDoneActive, lastBW, supersetUnits, unitOf, setLabel, defaultConfig, cleanupSg, modeOf, effortOf, isBw, isPerSide, sideReps, dropKey, dropSets } from './lib/history.js'
 import { beep, vibrate } from './lib/sound.js'
 import { t, instrFor, getLang, INSTR_LANGS } from './lib/i18n.js'
 import { nav } from './lib/nav.js'
@@ -1029,36 +1029,95 @@ function FinishSummary({ w, prs, e1prs = [], close }) {
   </div>
 }
 /* ---------------------------------------------------------------------------
-   Finish sheet. Two things you can only say at the end of a session:
+   Finish sheet. The three things you can only say at the end of a session:
    "every remaining set happened" (you trained through the list without tapping
-   each checkbox) and "it took this long" (the clock kept running while you
-   racked weights, took a call, or left the app open on the drive home).
-   Duration is stored the way every reader already expects it — as `end` — so
-   history, the heatmap and the monthly totals pick it up with no special case.
+   each checkbox), "these ones didn't" (a warm-up logged twice, an exercise
+   abandoned two sets in, the tail of a session cut short), and "it took this
+   long" (the clock kept running while you racked weights, took a call, or left
+   the app open on the drive home). Duration is stored the way every reader
+   already expects it — as `end` — so history, the heatmap and the monthly
+   totals pick it up with no special case.
 --------------------------------------------------------------------------- */
+/* The review list: every set in the session, deletable before it is written. Leaving a set
+   unchecked is not the same thing — it still lands in history as a set that reads as skipped,
+   and once the workout is saved there is no way to take it back out. Deletions are staged in
+   the sheet and applied at commit, so each one is undoable, and "Keep training" hands the
+   session back exactly as it was. */
+function FinishReview({ entries, drop, setDrop }) {
+  // A row flips itself; an exercise header flips all of its rows — and flips them back once
+  // every one is gone, which is the undo for "remove exercise".
+  const flip = keys => setDrop(prev => {
+    const next = new Set(prev)
+    const gone = keys.every(k => next.has(k))
+    keys.forEach(k => (gone ? next.delete(k) : next.add(k)))
+    return next
+  })
+  return <div className="fin-rev">
+    {entries.map((e, i) => {
+      const keys = e.sets.map((_, k) => dropKey(i, k))
+      const gone = keys.length > 0 && keys.every(k => drop.has(k))
+      return <div key={i} className={'fin-ex' + (gone ? ' gone' : '')}>
+        <div className="fin-hd">
+          <span className="fin-n">{exOr(e.id).n}</span>
+          <button className="fin-del" aria-label={gone ? t('Restore exercise') : t('Remove exercise')}
+            onClick={() => flip(keys)}><Icon name={gone ? 'reset' : 'trash'} /></button>
+        </div>
+        {e.sets.map((x, k) => {
+          const out = drop.has(dropKey(i, k))
+          return <div key={k} className={'fin-set' + (out ? ' gone' : '')}>
+            <span className="fin-i">{k + 1}</span>
+            <span className="fin-l">{setLabel(e.id, x, e.target)}</span>
+            {!x.done && <span className="fin-u">{t('unchecked')}</span>}
+            <button className="fin-del" aria-label={out ? t('Restore set') : t('Delete set')}
+              onClick={() => flip([dropKey(i, k)])}><Icon name={out ? 'reset' : 'trash'} /></button>
+          </div>
+        })}
+      </div>
+    })}
+  </div>
+}
 function FinishPrompt({ close }) {
   const A = S().active
   // Snapshotted at open: this is the moment you finished, not the moment you
   // finally tapped the button in the sheet.
   const [min, setMin] = useState(() => Math.max(0, Math.round((Date.now() - A.start) / 60000)))
-  const total = A.entries.reduce((n, e) => n + e.sets.length, 0)
-  const done = setsDoneActive(A)
+  // Sets picked out for deletion, keyed by where they sit in A.entries (see dropSets). Staged,
+  // not applied: the session is untouched until commit.
+  const [drop, setDrop] = useState(() => new Set())
+  const [review, setReview] = useState(false)
+  const kept = dropSets(A.entries, drop)
+  const total = kept.reduce((n, e) => n + e.sets.length, 0)
+  const done = kept.reduce((n, e) => n + e.sets.filter(x => x.done).length, 0)
   const left = total - done
+  const removed = A.entries.reduce((n, e) => n + e.sets.length, 0) - total
   // Pre-armed when there is anything left, because that is the case the button
   // exists for; off when you already checked everything, where it is a no-op.
   const [markAll, setMarkAll] = useState(left > 0)
   const finalDone = markAll ? total : done
+  // The counterpart to marking everything done, for the session that ended early: every
+  // unchecked set goes at once, and the toggle that would have checked them off goes with it.
+  const dropUnchecked = () => {
+    setDrop(prev => {
+      const next = new Set(prev)
+      A.entries.forEach((e, i) => e.sets.forEach((x, k) => { if (!x.done) next.add(dropKey(i, k)) }))
+      return next
+    })
+    setMarkAll(false)
+  }
 
   const commit = () => {
     close()
-    if (markAll) update(s => { s.active.entries.forEach(e => e.sets.forEach(x => { x.done = true })) }, true)
+    if (removed || markAll) update(s => {
+      s.active.entries = dropSets(s.active.entries, drop)
+      if (markAll) s.active.entries.forEach(e => e.sets.forEach(x => { x.done = true }))
+    }, true)
     doFinishWorkout({ end: A.start + min * 60000 })
   }
   return <>
     <h3 className="row" style={{ gap: 8 }}><Icon name="flag" style={{ color: 'var(--acc)' }} />{t('Finish workout')}</h3>
     <div className="muted small" style={{ marginBottom: 14 }}>
-      {left > 0 ? t(left === 1 ? '{0} set is still unchecked.' : '{0} sets are still unchecked.', left) + ' ' + t('Mark them done if you trained them, then confirm how long the session took.')
-        : t('Every set is checked off. Confirm how long the session took.')}
+      {left > 0 ? t(left === 1 ? '{0} set is still unchecked.' : '{0} sets are still unchecked.', left) + ' ' + t('Mark them done if you trained them, delete the ones you didn’t, then confirm how long the session took.')
+        : t('Every set is checked off. Delete anything that shouldn’t be saved, then confirm how long the session took.')}
     </div>
     {left > 0 && <div className="card" style={{ marginBottom: 12 }}>
       <div className="row between">
@@ -1069,8 +1128,25 @@ function FinishPrompt({ close }) {
         <Switch checked={markAll} onChange={setMarkAll} />
       </div>
     </div>}
+    {A.entries.length > 0 && <>
+      <button className="fin-tog" aria-expanded={review} onClick={() => setReview(v => !v)}>
+        <Icon name="list" />
+        <span className="grow">{t('Review & delete sets')}</span>
+        {removed > 0 && <span className="tag nocap">{t('{0} deleted', removed)}</span>}
+        <Icon name={review ? 'chevronUp' : 'chevronDown'} className="chev" />
+      </button>
+      {review && <>
+        {left > 0 && <Button size="sm" icon="trash" className="fin-drop" onClick={dropUnchecked}>
+          {t(left === 1 ? 'Delete the unchecked set' : 'Delete the {0} unchecked sets', left)}
+        </Button>}
+        <FinishReview entries={A.entries} drop={drop} setDrop={setDrop} />
+      </>}
+    </>}
     <Stepper label={t('Duration (min)')} value={min} step={5} decimal={false} onChange={v => setMin(Math.max(0, Math.round(v || 0)))} />
-    <div className="small dim" style={{ marginTop: 6 }}>{t('{0} of {1} sets will be logged.', finalDone, total)}</div>
+    <div className="small dim" style={{ marginTop: 6 }}>
+      {t('{0} of {1} sets will be logged.', finalDone, total)}
+      {removed > 0 && ' ' + t(removed === 1 ? '1 set will be deleted.' : '{0} sets will be deleted.', removed)}
+    </div>
     <div style={{ height: 16 }} />
     <Button variant="primary" icon="check" onClick={commit}>{finalDone ? t('Finish workout') : t('Finish with nothing logged')}</Button>
     <div style={{ height: 8 }} />

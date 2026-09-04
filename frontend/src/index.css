@@ -638,6 +638,55 @@ h4.sec{
 }
 .setrow .setgo:disabled{opacity:.3;cursor:default}
 .setrow .setgo:not(:disabled):active{background:var(--surface-3)}
+/* --- finish sheet: review & delete sets before the workout is written --- */
+/* The disclosure sits between the "mark everything done" card and the duration, because that
+   is the order the three decisions come in: what happened, what didn't, how long it took. */
+.fin-tog{
+  display:flex;align-items:center;gap:10px;width:100%;margin-bottom:12px;
+  padding:12px 14px;border:0;border-radius:var(--r-lg);background:var(--surface);
+  color:inherit;font:inherit;text-align:left;cursor:pointer;
+}
+.fin-tog:active{background:var(--surface-2)}
+.fin-tog .grow{flex:1;min-width:0;font-weight:500}
+/* the bulk drop is destructive, so it reads as such — .btn sets a colour of its own, hence the
+   compound selector */
+.btn.fin-drop{margin-bottom:10px;color:var(--red)}
+.fin-rev{margin-bottom:14px}
+.fin-ex{background:var(--surface);border-radius:var(--r-lg);padding:8px 12px 6px;margin-bottom:8px}
+.fin-ex:last-child{margin-bottom:0}
+/* A whole exercise on its way out stays readable — struck through, not hidden — since the
+   only way back is the row it was removed from. */
+.fin-ex.gone .fin-n{text-decoration:line-through;color:var(--label-3)}
+.fin-hd{display:flex;align-items:center;gap:8px;padding-bottom:2px}
+.fin-n{
+  flex:1;min-width:0;font-size:14.5px;font-weight:600;letter-spacing:-.01em;text-transform:capitalize;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.fin-set{display:flex;align-items:center;gap:9px;padding:5px 0;position:relative}
+.fin-set+.fin-set::before{
+  content:'';position:absolute;left:26px;right:0;top:0;height:var(--hair);background:var(--sep);
+}
+.fin-i{
+  width:20px;height:20px;border-radius:50%;background:var(--surface-2);color:var(--label-3);
+  display:flex;align-items:center;justify-content:center;font-size:11px;flex:none;
+}
+.fin-l{flex:1;min-width:0;font-size:14px;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* an unchecked set is the usual reason a row is here at all, so it says so */
+.fin-u{
+  flex:none;font-size:11px;color:var(--label-3);background:var(--surface-2);
+  border-radius:6px;padding:2px 6px;
+}
+.fin-set.gone .fin-l,.fin-set.gone .fin-u{text-decoration:line-through;color:var(--label-3)}
+.fin-set.gone .fin-i{opacity:.5}
+.fin-del{
+  width:30px;height:30px;border-radius:50%;flex:none;
+  display:flex;align-items:center;justify-content:center;
+  background:none;color:var(--label-3);font-size:15px;
+  transition:background var(--fast),color var(--fast);
+}
+.fin-del:active{background:var(--surface-2)}
+.fin-set:not(.gone) .fin-del:active,.fin-ex:not(.gone) .fin-hd .fin-del:active{color:var(--red)}
+
 /* exercise-config sheet: three steppers side by side on narrow phones */
 .cfgrow{gap:8px}
 .cfgrow>div{flex:1;min-width:0}
