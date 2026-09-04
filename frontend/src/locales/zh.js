@@ -155,6 +155,8 @@ export default {
   'Finish workout': '结束训练',
   'Start workout': '开始训练',
   'today is {0}': '今天是{0}',
+  'already trained today · {0}': '今天已经练过 · {0}',
+  'done today': '今天已完成',
   'rest day, but no one’s stopping you': '休息日，但没人拦着你',
   "Today's plan": '今日计划',
   'Start {0} ▶': '开始{0} ▶',

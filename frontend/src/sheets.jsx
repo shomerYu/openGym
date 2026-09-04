@@ -890,7 +890,7 @@ function Calendar({ start, close }) {
     cells.push(<button key={d} className={'cal-d' + (ws ? ' has' : '') + (iso === todayISO() ? ' today' : '')} onClick={() => {
       if (!ws) { close(); dayOverrideSheet(iso); return }
       if (ws.length === 1) { close(); workoutDetailSheet(ws[0]); return }
-      close(); ui().openSheet(c2 => <><h3>{fmtDate(iso, true)}</h3><div className="list">{ws.map(w => <WorkoutRow key={w.id} w={w} onClick={() => { c2(); workoutDetailSheet(w) }} />)}</div></>)
+      close(); dayWorkoutsSheet(iso, ws)
     }}><span>{d}</span><i className={dotCls} /></button>)
   }
   return <>
@@ -910,6 +910,12 @@ function Calendar({ start, close }) {
   </>
 }
 export const calendarSheet = start => ui().openSheet(close => <Calendar start={start} close={close} />)
+// One day's sessions, for a day that has more than one. Shared by the calendar and by Home's
+// today row, which both need to ask "which of these did you mean?" before showing a workout.
+export const dayWorkoutsSheet = (iso, ws) => ui().openSheet(close => <>
+  <h3>{fmtDate(iso, true)}</h3>
+  <div className="list">{ws.map(w => <WorkoutRow key={w.id} w={w} onClick={() => { close(); workoutDetailSheet(w) }} />)}</div>
+</>)
 
 /* shared small workout row (used in lists) */
 export function WorkoutRow({ w, onClick }) {

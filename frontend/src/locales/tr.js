@@ -155,6 +155,8 @@ export default {
   'Finish workout': 'Antrenmanı bitir',
   'Start workout': 'Antrenmana başla',
   'today is {0}': 'bugün {0} günü',
+  'already trained today · {0}': 'bugün çalıştın bile · {0}',
+  'done today': 'bugün yapıldı',
   'rest day, but no one’s stopping you': 'dinlenme günü, ama kimse seni durduramaz',
   "Today's plan": 'Bugünün planı',
   'Start {0} ▶': '{0} başlat ▶',

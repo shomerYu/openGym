@@ -155,6 +155,8 @@ export default {
   'Finish workout': 'Termina allenamento',
   'Start workout': 'Inizia allenamento',
   'today is {0}': 'oggi tocca {0}',
+  'already trained today · {0}': 'oggi hai già allenato · {0}',
+  'done today': 'fatto oggi',
   'rest day, but no one’s stopping you': 'giorno di riposo, ma nessuno ti ferma',
   "Today's plan": 'Piano di oggi',
   'Start {0} ▶': 'Inizia {0} ▶',

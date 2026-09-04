@@ -162,6 +162,8 @@ export default {
   // --- workout view ---
   'Start workout': 'Training starten',
   'today is {0}': 'heute ist {0}',
+  'already trained today · {0}': 'heute schon trainiert · {0}',
+  'done today': 'heute erledigt',
   'rest day, but no one’s stopping you': 'Pausentag — aber niemand hält dich auf',
   "Today's plan": 'Heutiger Plan',
   'Start {0} ▶': '{0} starten ▶',

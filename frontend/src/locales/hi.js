@@ -155,6 +155,8 @@ export default {
   'Finish workout': 'वर्कआउट समाप्त करें',
   'Start workout': 'वर्कआउट शुरू करें',
   'today is {0}': 'आज {0} है',
+  'already trained today · {0}': 'आज पहले ही ट्रेनिंग हो चुकी · {0}',
+  'done today': 'आज पूरा हुआ',
   'rest day, but no one’s stopping you': 'आराम का दिन, पर आपको कोई नहीं रोक रहा',
   "Today's plan": 'आज की योजना',
   'Start {0} ▶': '{0} शुरू करें ▶',

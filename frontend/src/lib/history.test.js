@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { modeOf, isTimed, fmtSec, setLabel, defaultConfig, buildSets, exLine, activeLine, workoutVolume, effortOf, stepEffort, capEffort, isBw, isPerSide, sideReps, repStep, dropKey, dropSets } from './history.js'
+import { modeOf, isTimed, fmtSec, setLabel, defaultConfig, buildSets, exLine, activeLine, workoutVolume, effortOf, stepEffort, capEffort, isBw, isPerSide, sideReps, repStep, dropKey, dropSets, workoutsOn } from './history.js'
 import { EXDB } from './exercises.js'
 
 // Real ids out of the shipped catalogue, so the body-part fallback is exercised for real.
@@ -512,5 +512,40 @@ describe('dropSets', () => {
     expect(out[0].target).toEqual({ mode: 'reps' })
     expect(out[0].plan).toEqual({ kind: 'up' })
     expect(out[0].topW).toBe(62.5)
+  })
+})
+
+// What happened on a day, as opposed to what was planned for it. Home and the start screen
+// read this so a session trained off the plan stops the day reading as a rest day.
+describe('workoutsOn', () => {
+  const S = {
+    week: {}, dayPlan: {}, routines: [],
+    workouts: [
+      { id: 'a', d: '2026-09-03', name: 'Push Day', routineId: 'r1' },
+      { id: 'b', d: '2026-09-04', name: 'Freestyle', routineId: null },
+      { id: 'c', d: '2026-09-04', name: 'Evening cardio', routineId: 'r2' }
+    ]
+  }
+
+  it('returns the day’s workouts, oldest first', () => {
+    expect(workoutsOn(S, '2026-09-04').map(w => w.id)).toEqual(['b', 'c'])
+    expect(workoutsOn(S, '2026-09-03').map(w => w.id)).toEqual(['a'])
+  })
+
+  it('is empty for a day nothing was logged on — a rest day stays a rest day', () => {
+    expect(workoutsOn(S, '2026-09-05')).toEqual([])
+  })
+
+  it('answers for a state with no history at all, and for no state', () => {
+    expect(workoutsOn({ workouts: [] }, '2026-09-04')).toEqual([])
+    expect(workoutsOn({}, '2026-09-04')).toEqual([])
+    expect(workoutsOn(null, '2026-09-04')).toEqual([])
+  })
+
+  it('does not consult the plan: an off-plan session still counts', () => {
+    // '2026-09-04' is a Friday; nothing is planned for it and the freestyle session carries
+    // no routineId, which is exactly the case that used to read as "Rest day".
+    expect(workoutsOn(S, '2026-09-04')).toHaveLength(2)
+    expect(workoutsOn(S, '2026-09-04')[0].routineId).toBeNull()
   })
 })

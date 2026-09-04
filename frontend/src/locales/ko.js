@@ -155,6 +155,8 @@ export default {
   'Finish workout': '운동 마치기',
   'Start workout': '운동 시작',
   'today is {0}': '오늘은 {0}',
+  'already trained today · {0}': '오늘 이미 운동함 · {0}',
+  'done today': '오늘 완료',
   'rest day, but no one’s stopping you': '휴식일이지만, 아무도 말리지 않아요',
   "Today's plan": '오늘의 계획',
   'Start {0} ▶': '{0} 시작 ▶',

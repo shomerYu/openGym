@@ -155,6 +155,8 @@ export default {
   'Finish workout': 'Завершить тренировку',
   'Start workout': 'Начать тренировку',
   'today is {0}': 'сегодня — {0}',
+  'already trained today · {0}': 'сегодня уже тренировался · {0}',
+  'done today': 'сделано сегодня',
   'rest day, but no one’s stopping you': 'день отдыха, но никто тебя не остановит',
   "Today's plan": 'План на сегодня',
   'Start {0} ▶': 'Начать {0} ▶',

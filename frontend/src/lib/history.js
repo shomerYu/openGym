@@ -271,6 +271,12 @@ export function dropSets(entries, drop) {
     .filter(e => e.sets.length)
 }
 
+// Every workout logged on a date, oldest first. The weekly plan says what a day was *for*;
+// only this says what happened on it — which is why a session trained off-plan (freestyle, or
+// a routine picked from the list on a rest day) used to leave Home and the start screen still
+// announcing a rest day after it was finished and saved.
+export const workoutsOn = (S, iso) => ((S && S.workouts) || []).filter(w => w.d === iso)
+
 export const lastBW = S => (S.bodyweight.length ? S.bodyweight[S.bodyweight.length - 1] : null)
 
 // Group consecutive items sharing a superset id (sg) into "units" of indices.
