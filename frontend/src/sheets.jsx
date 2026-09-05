@@ -3,7 +3,7 @@ import { useStore } from './store/useStore.js'
 import { useUI } from './store/useUI.js'
 import { EXDB, EXIDX, BODYPARTS, exOr, isCardio, isStretch, isBodyweightEq, allExercises, equipmentOf } from './lib/exercises.js'
 import { fmtDate, fmtNum, fmtVol, fmtDur, durPart, todayISO, isoOf, uid, exCount, DAYN, MONTHS_LONG, ACCENTS } from './lib/format.js'
-import { lastEntryFor, bestWeightFor, buildSets, effectiveRoutine, effectiveRoutineId, workoutVolume, setsDone, setsDoneActive, lastBW, supersetUnits, unitOf, setLabel, defaultConfig, cleanupSg, modeOf, effortOf, isBw, isPerSide, sideReps, dropKey, dropSets, workoutsOn, insertWorkout, withEntry } from './lib/history.js'
+import { lastEntryFor, bestWeightFor, buildSets, exLine, effectiveRoutine, effectiveRoutineId, workoutVolume, setsDone, setsDoneActive, lastBW, supersetUnits, unitOf, setLabel, defaultConfig, cleanupSg, modeOf, effortOf, isBw, isPerSide, sideReps, dropKey, dropSets, workoutsOn, insertWorkout, withEntry } from './lib/history.js'
 import { beep, vibrate } from './lib/sound.js'
 import { t, instrFor, getLang, INSTR_LANGS } from './lib/i18n.js'
 import { nav } from './lib/nav.js'
@@ -84,7 +84,9 @@ function WeightInput({ value, setValue, unit }) {
 }
 
 /* ============================ body weight ============================ */
-function BwSheet({ required, onDone, close }) {
+// Body weight is logged from Home or Stats, on purpose. It used to be asked for as a locked
+// sheet in front of every workout, which put a form between "Start" and training.
+function BwSheet({ close }) {
   const st = useStore(s => s.S)
   const unit = st.unit
   const bw = lastBW(st)
@@ -99,21 +101,17 @@ function BwSheet({ required, onDone, close }) {
       s.bodyweight.sort((a, b) => (a.d < b.d ? -1 : 1))
     })
     close()
-    if (onDone) onDone(n); else toast(t('Weight saved'))
+    toast(t('Weight saved'))
   }
   const recent = [...st.bodyweight].reverse().slice(0, 3)
   const delEntry = d => update(s => { s.bodyweight = s.bodyweight.filter(b => b.d !== d) })
   return <>
-    <h3>{required ? t('Quick check-in') : t('Log body weight')}</h3>
-    <div className="muted small">{required ? t('Slide or tap to set your weight — tracked before every workout so your curve stays honest.') : t('Today') + ', ' + fmtDate(todayISO(), true)}</div>
+    <h3>{t('Log body weight')}</h3>
+    <div className="muted small">{t('Today') + ', ' + fmtDate(todayISO(), true)}</div>
     <WeightInput value={v} setValue={setV} unit={unit} />
     <div style={{ height: 14 }} />
-    <Button variant="primary" onClick={save}>{required ? t('Save & start workout') : t('Save')}</Button>
-    {required && <>
-      <div style={{ height: 8 }} /><Button variant="ghost" className="dim" onClick={() => { close(); onDone && onDone(null) }}>{t('Start without weighing in')}</Button>
-      <div style={{ height: 2 }} /><Button variant="ghost" className="dim" icon="reset" onClick={() => { close(); nav('/workout') }}>{t('Choose a different workout')}</Button>
-    </>}
-    {!required && recent.length > 0 && <>
+    <Button variant="primary" onClick={save}>{t('Save')}</Button>
+    {recent.length > 0 && <>
       <h4 className="sec">{t('Recent weigh-ins')}</h4>
       <div className="list" style={{ gap: 0 }}>
         {recent.map(b => <div key={b.d} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
@@ -125,9 +123,8 @@ function BwSheet({ required, onDone, close }) {
     </>}
   </>
 }
-export function bwSheet(opts = {}) {
-  const h = ui().openSheet(close => <BwSheet {...opts} close={close} />, { locked: !!opts.required })
-  return h
+export function bwSheet() {
+  return ui().openSheet(close => <BwSheet close={close} />)
 }
 
 /* ============================ import from another app ============================ */
@@ -961,8 +958,45 @@ export function WorkoutRow({ w, onClick }) {
 }
 
 /* ============================ workout lifecycle ============================ */
+// What you are about to do, before you are in it: the exercises with their sets, reps and
+// weights, and the two things you might want at that moment — start it, or fix it first
+// (the wrong weight on the bar is easiest to correct before the session is built around it).
+// Backing out lands you where you were, since the sheet is a sheet: see Modals.jsx, where the
+// phone's back button closes the top one instead of leaving the screen.
+function StartConfirm({ routine, close }) {
+  const st = useStore(s => s.S)
+  const units = supersetUnits(routine.ex)
+  return <>
+    <h3 className="row" style={{ gap: 10 }}>
+      <span className="lrow-i"><Icon name={glyphOf(routine.emoji)} /></span>{routine.name}
+    </h3>
+    <div className="muted small" style={{ marginBottom: 12 }}>{exCount(routine.ex.length)}</div>
+    <div className="list" style={{ marginBottom: 16 }}>
+      {units.map((u, k) => <div key={k} className={u.length > 1 ? 'wl-u ss' : undefined}>
+        {u.length > 1 && <div className="wl-ss"><Icon name="link" />{t('Superset')}</div>}
+        {u.map(i => {
+          const cfg = routine.ex[i]
+          const ex = exOr(cfg.id)
+          return <div key={i} className="item">
+            <Thumb ex={ex} />
+            <div className="grow"><div className="tt capitalize">{ex.n}</div><div className="ss">{exLine({ ...cfg, id: cfg.id }, st.unit)}</div></div>
+          </div>
+        })}
+      </div>)}
+    </div>
+    <Button variant="primary" icon="play" onClick={() => { close(); beginWorkout(routine.id, null) }}>{t('Start workout')}</Button>
+    <div style={{ height: 8 }} />
+    <Button icon="pencil" onClick={() => { close(); nav('/plan/r/' + routine.id) }}>{t('Edit this workout')}</Button>
+    <div style={{ height: 8 }} />
+    <Button variant="ghost" className="dim" onClick={close}>{t('Cancel')}</Button>
+  </>
+}
 export function startFlow(routineId) {
-  bwSheet({ required: true, onDone: bw => beginWorkout(routineId, bw) })
+  const r = routineId ? S().routines.find(x => x.id === routineId) : null
+  // Freestyle has no plan to look at and nothing to edit — it starts empty, so asking twice
+  // would be asking about nothing.
+  if (!r) { beginWorkout(null, null); return }
+  ui().openSheet(close => <StartConfirm routine={r} close={close} />)
 }
 // A session logged after the fact is dated at midday, so the duration you confirm at the end
 // cannot push `end` onto the next day and every reader that derives a date from `start` agrees

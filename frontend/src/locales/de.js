@@ -46,12 +46,7 @@ export default {
   'June': 'Juni', 'July': 'Juli', 'August': 'August', 'September': 'September',
   'October': 'Oktober', 'November': 'November', 'December': 'Dezember',
   // --- body weight & goal ---
-  'Quick check-in': 'Kurzer Check-in',
   'Log body weight': 'Körpergewicht eintragen',
-  'Slide or tap to set your weight — tracked before every workout so your curve stays honest.': 'Schieben oder tippen, um dein Gewicht zu setzen — vor jedem Training erfasst, damit deine Kurve ehrlich bleibt.',
-  'Save & start workout': 'Speichern & Training starten',
-  'Start without weighing in': 'Ohne Wiegen starten',
-  'Choose a different workout': 'Anderes Training wählen',
   'Recent weigh-ins': 'Letzte Messungen',
   'Enter a valid weight': 'Gib ein gültiges Gewicht ein',
   'Weight saved': 'Gewicht gespeichert',
@@ -66,7 +61,6 @@ export default {
   'reached!': 'erreicht!',
   '{0} to gain': 'noch {0} zunehmen',
   '{0} to lose': 'noch {0} abnehmen',
-  "No entries yet — log your weight to start the curve. It's also asked before every workout.": 'Noch keine Einträge — trag dein Gewicht ein, um die Kurve zu starten. Es wird auch vor jedem Training abgefragt.',
   // --- exercise detail / picker / config ---
   'Best:': 'Bestwert:',
   'Add to my plan': 'Zu meinem Plan',
@@ -623,4 +617,6 @@ export default {
   '{0} sets of {1} — time to add weight or move to a harder variation.': '{0} Sätze mit {1} — Zeit für Zusatzgewicht oder eine schwerere Variante.',
   '{0} per side': '{0} pro Seite',
   'You still log the total: {0} is {1} per side.': 'Du trägst weiterhin die Gesamtzahl ein: {0} sind {1} pro Seite.',
+  'No entries yet — log your weight to start the curve.': 'Noch keine Einträge — trag dein Gewicht ein, um die Kurve zu starten.',
+  'Edit this workout': 'Dieses Training bearbeiten',
 }

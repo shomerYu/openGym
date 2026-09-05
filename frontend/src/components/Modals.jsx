@@ -64,8 +64,54 @@ function Sheet({ sheet }) {
   )
 }
 
+/* The phone's back button (and the browser's, and iOS' edge swipe) should dismiss the sheet you
+   are looking at, not leave the screen behind it — pressing back on "Start Hinge Day?" belongs
+   back on the routine list, and on Android it was closing the app instead.
+
+   A sheet is not a route, so it gets a history entry of its own: opening one pushes an entry at
+   the same URL, which makes back a no-op for the router (same hash, nothing re-renders) that we
+   answer by closing the top sheet. Closing a sheet any other way spends that entry with a
+   history.go, and the pop it causes is swallowed rather than closing a second sheet. Module
+   scope, not component state: these have to survive re-renders and stay in step with the one
+   real history stack. */
+let owned = 0      // entries we pushed — one per open sheet
+let swallow = 0    // pops we caused ourselves and must ignore
+
 export default function Modals() {
   const sheets = useUI(s => s.sheets)
+
+  // Keep our history entries in step with what is open, whichever side changed.
+  useEffect(() => {
+    const n = sheets.length
+    while (owned < n) { owned++; history.pushState({ ogSheet: owned }, '', location.href) }
+    if (owned > n) {
+      const back = owned - n
+      owned = n
+      // Only spend those entries while we are still standing on one. A sheet that closed
+      // *because* it sent you somewhere ("Edit this workout") has already pushed a route on
+      // top, and going back would undo that navigation rather than the sheet. The entry it
+      // leaves behind is harmless: it sits under the new route at the URL the sheet was
+      // opened from, which is where back belongs anyway.
+      // One go() is one popstate however many entries it crosses, so swallow one event.
+      if (history.state && history.state.ogSheet) { swallow++; history.go(-back) }
+    }
+  }, [sheets.length])
+
+  useEffect(() => {
+    const onPop = () => {
+      if (swallow > 0) { swallow--; return }
+      const st = useUI.getState()
+      const top = st.sheets[st.sheets.length - 1]
+      if (!top) return                  // not ours — the router's business
+      owned = Math.max(0, owned - 1)    // the entry we pushed for it is gone with the pop
+      // A locked sheet is one that has to be answered (the finish summary): put the entry
+      // back and leave it standing, rather than dismissing what a tap cannot dismiss either.
+      if (top.locked) { owned++; history.pushState({ ogSheet: owned }, '', location.href); return }
+      st.closeSheet(top.id)
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
 
   // lock the page behind any open sheet (iOS-safe)
   useEffect(() => {
