@@ -1,5 +1,38 @@
 # Changelog
 
+## v1.2.6 — 2026-09-05
+
+Training you did but never logged. Until now everything had to be entered as it happened: train
+on Tuesday without opening the app and Tuesday was gone, and a session saved without an
+accessory you actually did stayed wrong forever.
+
+### Log a workout you already did
+
+- 🕗 **"Log a past workout"** on the start screen — pick from the last two weeks, with each day
+  showing what it already holds or what was planned for it — or open the calendar and tap any
+  past day, which arrives with the date already chosen.
+- **Then the ordinary workout screen, dated to that day.** Same rows, same set table, same
+  finish sheet, so every mode (reps, timed holds, cardio), supersets, effort and the per-side
+  split work exactly as they do live, and a session written down on Friday is the same record
+  it would have been on the day.
+- **What a session being written down changes:** no clock, no rest timer and no "training now"
+  presence — all three describe a session in progress. The header reads "logging Tue, 1 Sept",
+  and the duration opens at an hour rather than at the time since midday.
+- **No progression prescription on a logged session.** It is computed from history as it stands
+  today, which for last Tuesday is partly the future — "add 2.5 kg, last session was clean"
+  would be reasoning from sessions that happened *after* the one being written down. The sets
+  still arrive at your usual numbers, from the plan and what you last lifted.
+- **It lands where its date belongs.** History is stored in the order it happened and every
+  reader assumes it, so a backdated session is inserted rather than appended — otherwise last
+  week's session would answer "what did I lift last time".
+
+### Add an exercise you forgot
+
+- ➕ **"Add an exercise you forgot"** on any workout in history. It goes in at the numbers you
+  configure, already checked off, and the workout's volume is recomputed from its sets.
+- PR badges are deliberately left alone: a personal record is a claim about the day it was set,
+  and a set typed in a week later cannot become one without rewriting every workout after it.
+
 ## v1.2.5 — 2026-09-04
 
 The whole session on one page, an end-of-workout sheet that can correct a session in both
