@@ -1,5 +1,30 @@
 # Changelog
 
+## v1.2.7 — 2026-09-05
+
+Starting a workout asks about the workout. The weigh-in that stood between "Start" and training
+is gone, and the phone's back button now dismisses a sheet instead of the whole screen.
+
+### Start opens the workout, not a form
+
+- 🏋️ **"Start Hinge Day?" shows the session you are about to do** — every exercise with the sets,
+  reps and weight it will arrive with, supersets grouped as they will be done — and the two
+  things worth deciding at that moment: start it, or **edit this workout** first, since the
+  wrong weight on the bar is easiest to fix before the session is built around it.
+- **The pre-workout weigh-in is gone.** "Quick check-in" was a locked sheet with a slider and
+  three buttons, asking the wrong question at the one moment you are ready to lift. Body weight
+  is still logged from Home and from Stats, where it always was.
+- Freestyle starts straight away: there is no plan to look at and nothing to edit.
+
+### The back button dismisses what is on top of the screen
+
+- ⬅️ **Back closes the open sheet** — one press per sheet — and leaves the page underneath where
+  it was. Sheets are not routes, so back used to go past the entire screen; on Android it closed
+  the app from a sheet that was only asking a question.
+- A sheet that must be answered (the finish summary) stays standing, exactly as it does against
+  a tap outside it. A sheet that closed by sending you somewhere — "Edit this workout" — keeps
+  the navigation it just made, and back from there returns to the list you started on.
+
 ## v1.2.6 — 2026-09-05
 
 Training you did but never logged. Until now everything had to be entered as it happened: train
